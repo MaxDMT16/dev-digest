@@ -8,6 +8,7 @@ import type { ReviewRepository, FindingRow, PullRow, ReviewRow } from './reposit
 import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
+import { formatCostPlain } from './format-cost.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -220,7 +221,7 @@ export class ReviewRunExecutor {
       });
       const { tokensIn, tokensOut, costUsd, grounding } = outcome;
       runLog.result(
-        `Usage: ${tokensIn} in → ${tokensOut} out · ${costUsd === null ? 'cost n/a' : `$${costUsd}`}`,
+        `Usage: ${tokensIn} in → ${tokensOut} out · ${costUsd === null ? 'cost n/a' : `$${formatCostPlain(costUsd)}`}`,
       );
 
       const keptFindings = outcome.review.findings;

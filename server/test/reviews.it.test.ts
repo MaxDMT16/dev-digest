@@ -8,6 +8,7 @@ import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mo
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
+import { formatCostPlain } from '../src/modules/reviews/format-cost.js';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -218,7 +219,7 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     // the run log carries the exact unrounded cost for reconciliation
     const usageLine = trace.log.find((e: { msg: string }) => e.msg.startsWith('Usage: '));
     expect(usageLine.msg).toBe(
-      `Usage: ${run!.tokensIn} in → ${run!.tokensOut} out · $${run!.costUsd}`,
+      `Usage: ${run!.tokensIn} in → ${run!.tokensOut} out · $${formatCostPlain(run!.costUsd!)}`,
     );
 
     await app.close();

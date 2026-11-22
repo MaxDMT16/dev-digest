@@ -26,15 +26,16 @@ export function formatUsd(v: number | null | undefined): string {
 
 /** Full-precision USD for tooltips (JS default number formatting). */
 export function formatUsdPrecise(v: number | null | undefined): string {
-  if (isMissing(v)) return DASH;
-  return `$${v}`;
+  if (isMissing(v) || v < 0) return DASH;
+  const s = v.toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
+  return `$${s === "" ? "0" : s}`;
 }
 
 /** Compact token count: "950", "8.2K", "12.0K" (always one decimal for K and M), "1.2M". */
 export function formatTokenCount(n: number | null | undefined): string {
   if (isMissing(n)) return DASH;
-  if (n < 1000) return String(Math.round(n));
-  if (n < 1e6) return `${(n / 1000).toFixed(1)}K`;
+  if (n < 999.5) return String(Math.round(n));
+  if (n < 999_950) return `${(n / 1000).toFixed(1)}K`;
   return `${(n / 1e6).toFixed(1)}M`;
 }
 

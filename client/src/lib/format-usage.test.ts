@@ -38,6 +38,8 @@ describe("formatUsd", () => {
 
 describe("formatUsdPrecise", () => {
   it("keeps full precision", () => expect(formatUsdPrecise(0.0137421)).toBe("$0.0137421"));
+  it("avoids exponent notation", () => expect(formatUsdPrecise(1e-7)).toBe("$0.0000001"));
+  it("dash for negative", () => expect(formatUsdPrecise(-1)).toBe(DASH));
   it("dash for missing", () => {
     expect(formatUsdPrecise(null)).toBe(DASH);
     expect(formatUsdPrecise(undefined)).toBe(DASH);
@@ -52,6 +54,9 @@ describe("formatTokenCount", () => {
     [1302, "1.3K"],
     [12011, "12.0K"],
     [1_234_567, "1.2M"],
+    [999.5, "1.0K"],
+    [999_999, "1.0M"],
+    [999_949, "999.9K"],
   ])("formats %s as %s", (input, expected) => {
     expect(formatTokenCount(input as number | null)).toBe(expected);
   });

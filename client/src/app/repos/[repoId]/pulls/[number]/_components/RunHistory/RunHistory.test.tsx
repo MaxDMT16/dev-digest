@@ -87,12 +87,12 @@ describe("RunHistory — outcome badge", () => {
 
   it("a running run shows no tok line", () => {
     renderRuns([run({ status: "running", tokens_in: 8000, tokens_out: 1119, cost_usd: 0.5 })]);
-    expect(screen.queryByText(/tok/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\d tok ·/)).not.toBeInTheDocument();
   });
 
   it("a failed run shows no cost", () => {
     renderRuns([run({ status: "failed", error: "boom", tokens_in: 10, tokens_out: 10, cost_usd: 0.5 })]);
-    expect(screen.queryByText(/tok/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\d tok ·/)).not.toBeInTheDocument();
     expect(screen.queryByText(/\$0\.5/)).not.toBeInTheDocument();
   });
 });

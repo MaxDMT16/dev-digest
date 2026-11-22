@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Icon, Avatar, Badge, CircularScore } from "@devdigest/ui";
 import type { PrMeta } from "@/lib/types";
+import { RunCostBadge } from "@/components/run-cost-badge";
+import { formatTokenCount } from "@/lib/format-usage";
 import { SIZE_COLOR, STATUS_META } from "../../constants";
 import { relativeTime, sizeOf } from "../../helpers";
 import { s } from "../../styles";
@@ -52,6 +54,22 @@ export function PRRow({ pr, repoId }: { pr: PrMeta; repoId: string }) {
         ) : (
           <span style={s.muted}>—</span>
         )}
+      </div>
+      <div>
+        <RunCostBadge
+          variant="compact"
+          costUsd={pr.usage_total?.cost_usd}
+          partial={(pr.usage_total?.runs_without_cost ?? 0) > 0}
+          title={
+            pr.usage_total
+              ? t("list.costTotalTitle", {
+                  runs: pr.usage_total.runs,
+                  tokensIn: formatTokenCount(pr.usage_total.tokens_in),
+                  tokensOut: formatTokenCount(pr.usage_total.tokens_out),
+                })
+              : undefined
+          }
+        />
       </div>
       <div>
         <Badge dot color={st.c} bg="transparent">

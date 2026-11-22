@@ -42,6 +42,7 @@ export const s = {
     gap: 5,
     flexShrink: 0,
   } satisfies CSSProperties,
+  usageRow: { alignSelf: "flex-end", marginTop: 2 } satisfies CSSProperties,
   scoreLabel: {
     fontSize: 12,
     color: "var(--text-muted)",

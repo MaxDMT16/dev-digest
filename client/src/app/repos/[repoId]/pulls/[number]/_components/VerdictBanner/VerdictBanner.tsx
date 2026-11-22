@@ -5,7 +5,8 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Icon, Badge, CircularScore } from "@devdigest/ui";
-import type { Verdict } from "@devdigest/shared";
+import type { Verdict, RunSummary } from "@devdigest/shared";
+import { RunCostBadge } from "@/components/run-cost-badge";
 import { VERDICT_META } from "./constants";
 import { s } from "./styles";
 
@@ -16,6 +17,7 @@ export function VerdictBanner({
   findingsCount,
   blockers,
   agentName,
+  usage,
 }: {
   verdict: Verdict;
   summary: string | null;
@@ -23,6 +25,9 @@ export function VerdictBanner({
   findingsCount: number;
   blockers: number;
   agentName?: string | null;
+  /** Omitted → no cost badge (other consumers unchanged). `null` → badge showing
+   *  "—" (run has no usage data). A run → detailed badge; non-done status shows "—". */
+  usage?: Pick<RunSummary, "cost_usd" | "tokens_in" | "tokens_out" | "status"> | null;
 }) {
   const t = useTranslations("prReview");
   const m = VERDICT_META[verdict] ?? VERDICT_META.comment;
@@ -51,6 +56,17 @@ export function VerdictBanner({
         <div style={s.scoreCol}>
           <CircularScore score={score} size={52} stroke={5} />
           <span style={s.scoreLabel}>{t("verdict.prScore")}</span>
+          {usage !== undefined && (
+            <div style={s.usageRow}>
+              <RunCostBadge
+                variant="detailed"
+                costUsd={usage?.cost_usd}
+                tokensIn={usage?.tokens_in}
+                tokensOut={usage?.tokens_out}
+                status={usage?.status}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

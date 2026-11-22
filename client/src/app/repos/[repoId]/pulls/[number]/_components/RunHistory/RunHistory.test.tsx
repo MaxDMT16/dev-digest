@@ -9,6 +9,7 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { RunSummary } from "@devdigest/shared";
 import messages from "../../../../../../../../messages/en/prReview.json";
+import type { SeverityCounts } from "@/lib/findings";
 import { RunHistory } from "./RunHistory";
 
 afterEach(cleanup);
@@ -35,10 +36,10 @@ function run(o: Partial<RunSummary>): RunSummary {
   };
 }
 
-function renderRuns(runs: RunSummary[]) {
+function renderRuns(runs: RunSummary[], severityByRun?: Map<string, SeverityCounts>) {
   return render(
     <NextIntlClientProvider locale="en" messages={{ prReview: messages }}>
-      <RunHistory runs={runs} onOpenTrace={() => {}} />
+      <RunHistory runs={runs} onOpenTrace={() => {}} severityByRun={severityByRun} />
     </NextIntlClientProvider>,
   );
 }
@@ -94,5 +95,24 @@ describe("RunHistory — outcome badge", () => {
     renderRuns([run({ status: "failed", error: "boom", tokens_in: 10, tokens_out: 10, cost_usd: 0.5 })]);
     expect(screen.queryByText(/\d tok ·/)).not.toBeInTheDocument();
     expect(screen.queryByText(/\$0\.5/)).not.toBeInTheDocument();
+  });
+});
+
+describe("RunHistory — severity marks", () => {
+  it("shows only non-zero levels with correct numbers, replacing the findings text", () => {
+    renderRuns(
+      [run({ findings_count: 3, blockers: 2, score: 50 })],
+      new Map([["run-1", { CRITICAL: 2, WARNING: 0, SUGGESTION: 1 }]]),
+    );
+    expect(screen.getByLabelText("2 critical")).toHaveTextContent("2");
+    expect(screen.getByLabelText("1 suggestion")).toHaveTextContent("1");
+    expect(screen.queryByLabelText(/warning/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/3 findings/)).not.toBeInTheDocument();
+    expect(screen.getByText(/2 blockers/)).toBeInTheDocument();
+  });
+
+  it("keeps the 'N findings' text when no entry exists for the run", () => {
+    renderRuns([run({ findings_count: 3, blockers: 0 })], new Map());
+    expect(screen.getByText(/3 findings/)).toBeInTheDocument();
   });
 });

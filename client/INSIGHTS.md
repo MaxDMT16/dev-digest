@@ -44,3 +44,4 @@
   - Added `N CRITICAL · N WARNING · N SUGGESTIONS` pills with a single-select filter in the expanded run (Agent runs tab), and compact colored severity marks in timeline rows. Client-only; no API or contract change.
   - Done through subagent-driven development, using local `tsc`/`vitest` binaries. Commits were made unsigned (`git -c commit.gpgsign=false`) because the SSH signing key needed a passphrase that a non-interactive agent can't enter.
   - Deferred minors: the tooltip uses `SEV[level].label` (not i18n); `focusIdx` isn't reset when `hideLow` changes (pre-existing); `aria-label` on the timeline marks span lacks `role="img"`.
+  - Timeline marks are `<button>`s opening a `Modal` (`RunFindingsModal`) fed by `findingsByRun` (built in `FindingsTab` next to `severityByRun`). The original static spans were a bug: hover/click did nothing. A run without a `findingsByRun` entry keeps static spans.

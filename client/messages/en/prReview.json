@@ -116,6 +116,12 @@
     "openTrace": "Open run trace & logs",
     "deleteRun": "Delete run",
     "tokens": "tok",
-    "severityCount": "{count} {level}"
+    "severityCount": "{count} {level}",
+    "findingsModal": {
+      "title": "{agent} · {count} {level}",
+      "goToReview": "Go to review run",
+      "close": "Close",
+      "empty": "No findings to show."
+    }
   }
 }

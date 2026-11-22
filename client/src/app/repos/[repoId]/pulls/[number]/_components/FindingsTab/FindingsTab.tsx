@@ -55,6 +55,11 @@ export function FindingsTab({
     [runs],
   );
 
+  const findingsByRun = useMemo(
+    () => new Map(runs.filter((r) => r.run_id).map((r) => [r.run_id as string, r.findings])),
+    [runs],
+  );
+
   const handleCancelAll = useCallback(() => {
     liveRunIds.forEach((id) => cancelMutation.mutate(id));
   }, [liveRunIds, cancelMutation]);
@@ -149,6 +154,9 @@ export function FindingsTab({
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
             severityByRun={severityByRun}
+            findingsByRun={findingsByRun}
+            repoFullName={repoFullName}
+            headSha={headSha}
           />
         </div>
       )}

@@ -22,6 +22,14 @@
 - `RunCostBadge` reads the `runs` i18n namespace. The app loads every `messages/en/*.json`, but component tests don't. A test that renders the badge inside another component must pass both namespaces, e.g. `messages={{ prReview, runs }}`, or next-intl throws on missing keys.
 - `VerdictBanner`'s `usage` prop has three states: omitted means no badge, `null` means "—", and a `RunSummary` means the detailed badge. `FindingsTab` feeds it from the already-fetched `prRuns` through a `run_id` map, so there is no extra request.
 
+- Severity counters and the severity filter live in `FindingsPanel` (`SeverityCounters/` + `visibleFindings(findings, hideLow, severity)`).
+  - Counts are computed AFTER the "Hide low confidence" filter, so each counter equals the number of cards of that level in the list when both filters are on.
+  - Counts and `shown` are `useMemo`s over the `findings` prop, with no extra state. After accept/dismiss, `useFindingAction` refetches `["reviews", prId]` and the counters follow with no extra code. Don't cache counts in state.
+  - `countBySeverity` (`src/lib/findings.ts`) is shared by the panel and the RunHistory timeline marks. Use `Object.hasOwn` there: an `in` check matched prototype keys such as `"toString"`.
+- RunHistory timeline marks (`severityByRun` prop) are built in `FindingsTab` from the already-loaded reviews (`review.run_id`, same pattern as `runsById`).
+  - A run with no matching review falls back to the old "N finding(s)" text, which keeps the existing RunHistory tests valid.
+  - Tests that render `FindingsPanel`/`SeverityCounters`/`RunHistory` need `messages={{ prReview: messages }}`.
+
 ## Open Questions
 
 - Should `pnpm.overrides` move from `client/package.json` to a `pnpm-workspace.yaml` (or wherever pnpm 11 reads it) so installs stop rewriting the lockfile? This needs a maintainer decision, since CI's pnpm version may differ.
@@ -32,3 +40,7 @@
   - Added a COST column to the PR list (`PrMeta.usage_total`: the sum of done runs, with a "≥" prefix when partial).
   - Added the detailed badge under the score ring in `VerdictBanner`, and a `{tokens} tok · {cost}` line in RunHistory rows.
   - Synced `RunSummary.cost_usd`, `RunStats.cost_usd` and `PrUsageTotal` into `src/vendor/shared`, identical to the server copy.
+- 2026-11-22: Severity counters + filter.
+  - Added `N CRITICAL · N WARNING · N SUGGESTIONS` pills with a single-select filter in the expanded run (Agent runs tab), and compact colored severity marks in timeline rows. Client-only; no API or contract change.
+  - Done through subagent-driven development, using local `tsc`/`vitest` binaries. Commits were made unsigned (`git -c commit.gpgsign=false`) because the SSH signing key needed a passphrase that a non-interactive agent can't enter.
+  - Deferred minors: the tooltip uses `SEV[level].label` (not i18n); `focusIdx` isn't reset when `hideLow` changes (pre-existing); `aria-label` on the timeline marks span lacks `role="img"`.

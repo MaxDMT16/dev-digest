@@ -224,6 +224,47 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
+  it('PR list usage_total sums all done runs; PR without runs is null', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const { pr: emptyPr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'Tot', provider: 'openai', model: 'gpt-4.1', system_prompt: 'tot' },
+      })
+    ).json();
+
+    for (let i = 1; i <= 2; i++) {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/pulls/${pr.id}/review`,
+        payload: { agentId: agent.id },
+      });
+      expect(res.statusCode).toBe(200);
+      await waitForPrRuns(pg.handle.db, pr.id, { expected: i });
+    }
+
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json() as Array<{
+      cost_usd: number;
+    }>;
+    expect(runs).toHaveLength(2);
+    const expectedSum = runs.reduce((a, r) => a + r.cost_usd, 0);
+
+    const list = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    const row = list.find((p: { id: string }) => p.id === pr.id);
+    expect(row.usage_total.runs).toBe(2);
+    expect(row.usage_total.runs_without_cost).toBe(0);
+    expect(row.usage_total.cost_usd).toBeCloseTo(expectedSum, 9);
+
+    const emptyRepoId = emptyPr.repoId;
+    const emptyList = (await app.inject({ method: 'GET', url: `/repos/${emptyRepoId}/pulls` })).json();
+    expect(emptyList.find((p: { id: string }) => p.id === emptyPr.id).usage_total).toBeNull();
+
+    await app.close();
+  });
+
   it('dual-provider structured output: anthropic provider returns the same Review shape', async () => {
     const app = await appWith(REVIEW_FIXTURE, 'anthropic');
     const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);

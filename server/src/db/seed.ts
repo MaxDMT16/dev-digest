@@ -132,6 +132,25 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       author: 'marisa.koch',
     });
 
+    // a finished run with cost so the PR list/UI show usage before any live run
+    const [seedRun] = await db
+      .insert(t.agentRuns)
+      .values({
+        workspaceId,
+        agentId: null,
+        prId: pr!.id,
+        status: 'done',
+        provider: 'seed',
+        model: 'seed',
+        tokensIn: 8213,
+        tokensOut: 1302,
+        costUsd: 0.014,
+        score: 61,
+        findingsCount: 2,
+        grounding: '2/2 passed',
+      })
+      .returning();
+
     // a sample review + findings so the PR shows results before the first run
     const [review] = await db
       .insert(t.reviews)
@@ -144,6 +163,7 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
           'Solid middleware approach, but a Stripe secret key is committed in plaintext and the user-list endpoint introduces an N+1 query under the new limiter.',
         score: 61,
         model: 'seed',
+        runId: seedRun!.id,
       })
       .returning();
 

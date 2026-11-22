@@ -40,6 +40,11 @@ Package-level run/test/typecheck commands are in each `<package>/CLAUDE.md`.
 - Lock files and generated dirs: see each package's CLAUDE.md.
 - `docker compose down -v` deletes the real dev DB volume (`devdigest_pgdata`). Never use it to "reset".
 
+## Insights loop
+
+- Before working in a package, read its `INSIGHTS.md` and treat it as high-confidence guidance unless told otherwise.
+- When you finish a substantial task, run `/engineering-insights` to append lessons to the touched package's `INSIGHTS.md`. Do not skip this step.
+
 ## Read when
 
 - understanding the overall architecture, review flow, or roadmap → [README.md](README.md)

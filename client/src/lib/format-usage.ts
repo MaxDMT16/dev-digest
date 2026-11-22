@@ -13,8 +13,9 @@ export function formatUsd(v: number | null | undefined): string {
   if (v < 0.01) {
     // Round first: 0.009996 -> 0.010 must take the >=0.01 branch, not print "$0.0100".
     const r = Number(v.toPrecision(2));
-    if (r < 0.01) return `$${r.toFixed(4)}`;
-    return `$${r.toFixed(3)}`;
+    if (r >= 0.01) return `$${r.toFixed(3)}`;
+    // 2 significant digits: 4 decimals from 0.001, 5 below.
+    return `$${r.toFixed(r >= 0.001 ? 4 : 5)}`;
   }
   if (v < 1) {
     const r = Number(v.toFixed(3));

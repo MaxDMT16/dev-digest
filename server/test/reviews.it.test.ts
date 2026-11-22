@@ -209,6 +209,18 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
 
+    // cost persisted from the provider's per-call costUsd (MockLLMProvider: 0.001/call)
+    expect(run!.costUsd).not.toBeNull();
+    expect(run!.costUsd!).toBeGreaterThan(0);
+    expect(trace.stats.cost_usd).toBe(run!.costUsd);
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(runs.find((r: { run_id: string }) => r.run_id === runId).cost_usd).toBe(run!.costUsd);
+    // the run log carries the exact unrounded cost for reconciliation
+    const usageLine = trace.log.find((e: { msg: string }) => e.msg.startsWith('Usage: '));
+    expect(usageLine.msg).toBe(
+      `Usage: ${run!.tokensIn} in → ${run!.tokensOut} out · $${run!.costUsd}`,
+    );
+
     await app.close();
   });
 

@@ -107,12 +107,12 @@ describe("RunHistory — severity marks", () => {
     expect(screen.getByLabelText("2 critical")).toHaveTextContent("2");
     expect(screen.getByLabelText("1 suggestion")).toHaveTextContent("1");
     expect(screen.queryByLabelText(/warning/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/3 findings/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/3 finding\(s\)/)).not.toBeInTheDocument();
     expect(screen.getByText(/2 blockers/)).toBeInTheDocument();
   });
 
   it("keeps the 'N findings' text when no entry exists for the run", () => {
     renderRuns([run({ findings_count: 3, blockers: 0 })], new Map());
-    expect(screen.getByText(/3 findings/)).toBeInTheDocument();
+    expect(screen.getByText(/3 finding\(s\)/)).toBeInTheDocument();
   });
 });

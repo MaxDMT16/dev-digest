@@ -28,6 +28,14 @@
   },
   "panel": {
     "hideLowConfidence": "Hide low confidence",
+    "severityCount": {
+      "CRITICAL": "{count} CRITICAL",
+      "WARNING": "{count} WARNING",
+      "SUGGESTION": "{count} SUGGESTIONS"
+    },
+    "severitySeparator": "·",
+    "filterBySeverity": "Show only {level} findings",
+    "clearSeverityFilter": "Show all findings",
     "noMatchTitle": "No findings match",
     "noMatchBody": "Adjust the filters above, or run a review to generate findings."
   },

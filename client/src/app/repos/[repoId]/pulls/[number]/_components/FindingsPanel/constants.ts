@@ -16,3 +16,6 @@ export const KEY_TO_ACTION: Record<string, FindingActionKind> = {
   a: "accept",
   d: "dismiss",
 };
+
+/** Severity levels offered as counters / filter, in display order. */
+export const FILTER_SEVERITIES = ["CRITICAL", "WARNING", "SUGGESTION"] as const;

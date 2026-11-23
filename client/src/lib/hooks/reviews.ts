@@ -156,6 +156,8 @@ export function useFindingAction() {
       ),
     onSuccess: (_d, { prId }) => {
       if (prId) qc.invalidateQueries({ queryKey: ["reviews", prId] });
+      // PR list FINDINGS column counts open findings only.
+      qc.invalidateQueries({ queryKey: ["pulls"] });
     },
   });
 }

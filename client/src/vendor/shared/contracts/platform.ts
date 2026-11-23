@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Provider } from './knowledge.js';
+import { Severity } from './findings.js';
 
 /**
  * Platform / scaffolding DTOs owned by F1:
@@ -166,6 +167,32 @@ export const PrUsageTotal = z.object({
 });
 export type PrUsageTotal = z.infer<typeof PrUsageTotal>;
 
+/** One finding shown in the PR list's FINDINGS popover (no rationale/suggestion — keep the list payload small). */
+export const PrFindingPreview = z.object({
+  id: z.string(),
+  severity: Severity,
+  title: z.string(),
+  file: z.string(),
+  start_line: z.number().int(),
+  end_line: z.number().int(),
+});
+export type PrFindingPreview = z.infer<typeof PrFindingPreview>;
+
+/**
+ * Open (not dismissed) findings of each agent's LATEST review of a PR, summed.
+ * `preview` is capped and ordered by severity, then confidence.
+ */
+export const PrFindingsSummary = z.object({
+  total: z.number().int(),
+  counts: z.object({
+    CRITICAL: z.number().int(),
+    WARNING: z.number().int(),
+    SUGGESTION: z.number().int(),
+  }),
+  preview: z.array(PrFindingPreview),
+});
+export type PrFindingsSummary = z.infer<typeof PrFindingsSummary>;
+
 export const PrMeta = z.object({
   id: z.string().nullish(),
   number: z.number().int(),
@@ -184,6 +211,8 @@ export const PrMeta = z.object({
   score: z.number().int().nullish(),
   // Sum of all done runs' usage (list endpoint only; null when no done runs).
   usage_total: PrUsageTotal.nullish(),
+  // Open findings of each agent's latest review, summed (list endpoint only; null until a review exists).
+  findings_summary: PrFindingsSummary.nullish(),
 });
 export type PrMeta = z.infer<typeof PrMeta>;
 

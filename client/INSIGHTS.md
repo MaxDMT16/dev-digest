@@ -29,6 +29,11 @@
 - RunHistory timeline marks (`severityByRun` prop) are built in `FindingsTab` from the already-loaded reviews (`review.run_id`, same pattern as `runsById`).
   - A run with no matching review falls back to the old "N finding(s)" text, which keeps the existing RunHistory tests valid.
   - Tests that render `FindingsPanel`/`SeverityCounters`/`RunHistory` need `messages={{ prReview: messages }}`.
+- PR list FINDINGS column: `PrFindingsCell` (`pulls/_components/PrFindingsCell/`) renders severity marks and a hover popover from `PrMeta.findings_summary`.
+  - The popover is a `createPortal` to `document.body` with `position: fixed`, because the table card and rows have `overflow: hidden`. There is no Popover primitive in `@devdigest/ui` and `src/vendor/ui` must not be edited.
+  - The cell stops click propagation, since the whole row navigates to the PR.
+  - `useFindingAction` also invalidates `["pulls"]`, because the list counts open (non-dismissed) findings only. Without that, the list stays stale after Dismiss until the 60s refetch.
+  - In tests, hover is `fireEvent.mouseEnter` on the `[tabindex='0']` wrapper. The popover has `role="tooltip"`.
 
 ## Open Questions
 
@@ -45,3 +50,4 @@
   - Done through subagent-driven development, using local `tsc`/`vitest` binaries. Commits were made unsigned (`git -c commit.gpgsign=false`) because the SSH signing key needed a passphrase that a non-interactive agent can't enter.
   - Deferred minors: the tooltip uses `SEV[level].label` (not i18n); `focusIdx` isn't reset when `hideLow` changes (pre-existing); `aria-label` on the timeline marks span lacks `role="img"`.
   - Timeline marks are `<button>`s opening a `Modal` (`RunFindingsModal`) fed by `findingsByRun` (built in `FindingsTab` next to `severityByRun`). The original static spans were a bug: hover/click did nothing. A run without a `findingsByRun` entry keeps static spans.
+- 2026-11-23: PR list FINDINGS column. Added the column between SCORE and COST (`GRID`/`COLUMN_KEYS` in `pulls/constants.ts`), the `list.findings.*` i18n keys and `PrFindingsCell`. No e2e change: the e2e runner has no documented hover support, so the popover is covered by RTL tests only.

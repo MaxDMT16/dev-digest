@@ -99,9 +99,15 @@
       "author": "Author",
       "size": "Size",
       "score": "Score",
+      "findings": "Findings",
       "cost": "Cost",
       "status": "Status",
       "updated": "Updated"
+    },
+    "findings": {
+      "popoverTitle": "{count, plural, one {# finding} other {# findings}} in this run",
+      "more": "+{count} more",
+      "severityCount": "{count} {level}"
     },
     "costTotalTitle": "Total for {runs} runs · {tokensIn}→{tokensOut} tokens",
     "filesCount": "{count} files",

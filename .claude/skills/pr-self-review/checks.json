@@ -1,0 +1,35 @@
+{
+  "packages": {
+    "server": {
+      "commands": [
+        { "name": "typecheck", "cmd": "pnpm typecheck" },
+        { "name": "test", "cmd": "pnpm exec vitest run --exclude '**/*.it.test.ts'" }
+      ],
+      "alsoChecks": []
+    },
+    "client": {
+      "commands": [
+        { "name": "typecheck", "cmd": "pnpm typecheck" },
+        { "name": "test", "cmd": "pnpm test" }
+      ],
+      "alsoChecks": []
+    },
+    "reviewer-core": {
+      "commands": [
+        { "name": "typecheck", "cmd": "npm run typecheck" },
+        { "name": "test", "cmd": "npm test" }
+      ],
+      "alsoChecks": ["server"]
+    },
+    "e2e": {
+      "commands": [{ "name": "typecheck", "cmd": "npm run typecheck" }],
+      "alsoChecks": []
+    }
+  },
+  "keyDeps": { "server": ["reviewer-core"] },
+  "timeoutMs": 600000,
+  "integration": {
+    "globs": ["server/src/db/**", "**/routes.ts"],
+    "message": "Run the integration tests (*.it.test.ts, needs Docker) for the touched server areas."
+  }
+}

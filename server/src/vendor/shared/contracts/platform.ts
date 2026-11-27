@@ -156,6 +156,16 @@ export type Repo = z.infer<typeof Repo>;
 export const PrStatus = z.enum(['needs_review', 'reviewed', 'stale', 'open', 'closed', 'merged']);
 export type PrStatus = z.infer<typeof PrStatus>;
 
+/** Aggregated usage of all finished (status='done') review runs of a PR. */
+export const PrUsageTotal = z.object({
+  cost_usd: z.number().nullable(), // sum of known costs; null if no done run has a cost
+  tokens_in: z.number().int(),
+  tokens_out: z.number().int(),
+  runs: z.number().int(), // count of done runs
+  runs_without_cost: z.number().int(), // done runs whose cost_usd is null
+});
+export type PrUsageTotal = z.infer<typeof PrUsageTotal>;
+
 export const PrMeta = z.object({
   id: z.string().nullish(),
   number: z.number().int(),
@@ -172,6 +182,8 @@ export const PrMeta = z.object({
   updated_at: z.string().nullish(),
   // Latest-review score (list endpoint only; null/absent until reviewed).
   score: z.number().int().nullish(),
+  // Sum of all done runs' usage (list endpoint only; null when no done runs).
+  usage_total: PrUsageTotal.nullish(),
 });
 export type PrMeta = z.infer<typeof PrMeta>;
 

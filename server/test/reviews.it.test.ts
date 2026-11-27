@@ -8,6 +8,7 @@ import { MockLLMProvider, MockEmbedder, MockGitClient } from '../src/adapters/mo
 import * as t from '../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import type { Review } from '@devdigest/shared';
+import { formatCostPlain } from '../src/modules/reviews/format-cost.js';
 
 const hasDocker = await dockerAvailable();
 const d = hasDocker ? describe : describe.skip;
@@ -208,6 +209,59 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     expect(run!.status).toBe('done');
     expect(run!.findingsCount).toBe(1);
     expect(run!.grounding).toBe('1/2 passed');
+
+    // cost persisted from the provider's per-call costUsd (MockLLMProvider: 0.001/call)
+    expect(run!.costUsd).not.toBeNull();
+    expect(run!.costUsd!).toBeGreaterThan(0);
+    expect(trace.stats.cost_usd).toBe(run!.costUsd);
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json();
+    expect(runs.find((r: { run_id: string }) => r.run_id === runId).cost_usd).toBe(run!.costUsd);
+    // the run log carries the exact unrounded cost for reconciliation
+    const usageLine = trace.log.find((e: { msg: string }) => e.msg.startsWith('Usage: '));
+    expect(usageLine.msg).toBe(
+      `Usage: ${run!.tokensIn} in → ${run!.tokensOut} out · $${formatCostPlain(run!.costUsd!)}`,
+    );
+
+    await app.close();
+  });
+
+  it('PR list usage_total sums all done runs; PR without runs is null', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const { repo, pr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const { pr: emptyPr } = await setupRepoAndPr(pg.handle.db, workspaceId);
+    const agent = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'Tot', provider: 'openai', model: 'gpt-4.1', system_prompt: 'tot' },
+      })
+    ).json();
+
+    for (let i = 1; i <= 2; i++) {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/pulls/${pr.id}/review`,
+        payload: { agentId: agent.id },
+      });
+      expect(res.statusCode).toBe(200);
+      await waitForPrRuns(pg.handle.db, pr.id, { expected: i });
+    }
+
+    const runs = (await app.inject({ method: 'GET', url: `/pulls/${pr.id}/runs` })).json() as Array<{
+      cost_usd: number;
+    }>;
+    expect(runs).toHaveLength(2);
+    const expectedSum = runs.reduce((a, r) => a + r.cost_usd, 0);
+
+    const list = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    const row = list.find((p: { id: string }) => p.id === pr.id);
+    expect(row.usage_total.runs).toBe(2);
+    expect(row.usage_total.runs_without_cost).toBe(0);
+    expect(row.usage_total.cost_usd).toBeCloseTo(expectedSum, 9);
+
+    const emptyRepoId = emptyPr.repoId;
+    const emptyList = (await app.inject({ method: 'GET', url: `/repos/${emptyRepoId}/pulls` })).json();
+    expect(emptyList.find((p: { id: string }) => p.id === emptyPr.id).usage_total).toBeNull();
 
     await app.close();
   });

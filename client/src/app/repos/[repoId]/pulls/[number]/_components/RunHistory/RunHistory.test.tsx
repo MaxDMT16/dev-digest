@@ -25,6 +25,7 @@ function run(o: Partial<RunSummary>): RunSummary {
     duration_ms: 1000,
     tokens_in: 100,
     tokens_out: 50,
+    cost_usd: null,
     findings_count: 0,
     grounding: "0/0 passed",
     ran_at: "2026-06-11T18:44:34.000Z",
@@ -71,5 +72,27 @@ describe("RunHistory — outcome badge", () => {
   it("a running run reads 'running'", () => {
     renderRuns([run({ status: "running", score: null, blockers: null })]);
     expect(screen.getByText("running")).toBeInTheDocument();
+  });
+
+  it("a done run shows total tokens and cost", () => {
+    renderRuns([run({ tokens_in: 8000, tokens_out: 1119, cost_usd: 0.00134 })]);
+    expect(screen.getByText(/9,119 tok/)).toBeInTheDocument();
+    expect(screen.getByText(/\$0\.0013/)).toBeInTheDocument();
+  });
+
+  it("a done run with tokens but null cost shows a dash", () => {
+    renderRuns([run({ tokens_in: 8000, tokens_out: 1119, cost_usd: null })]);
+    expect(screen.getByText(/9,119 tok · —/)).toBeInTheDocument();
+  });
+
+  it("a running run shows no tok line", () => {
+    renderRuns([run({ status: "running", tokens_in: 8000, tokens_out: 1119, cost_usd: 0.5 })]);
+    expect(screen.queryByText(/\d tok ·/)).not.toBeInTheDocument();
+  });
+
+  it("a failed run shows no cost", () => {
+    renderRuns([run({ status: "failed", error: "boom", tokens_in: 10, tokens_out: 10, cost_usd: 0.5 })]);
+    expect(screen.queryByText(/\d tok ·/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\$0\.5/)).not.toBeInTheDocument();
   });
 });

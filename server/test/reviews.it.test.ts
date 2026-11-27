@@ -266,6 +266,68 @@ d('A2 reviews + agents (Testcontainers pg)', () => {
     await app.close();
   });
 
+  it('PR list findings_summary: latest review per agent, dismissed excluded, null without review', async () => {
+    const app = await appWith(REVIEW_FIXTURE);
+    const db = pg.handle.db;
+    const { repo, pr } = await setupRepoAndPr(db, workspaceId);
+    const { pr: emptyPr } = await setupRepoAndPr(db, workspaceId);
+    const agentA = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'SumA', provider: 'openai', model: 'gpt-4.1', system_prompt: 'a' },
+      })
+    ).json();
+    const agentB = (
+      await app.inject({
+        method: 'POST',
+        url: '/agents',
+        payload: { name: 'SumB', provider: 'openai', model: 'gpt-4.1', system_prompt: 'b' },
+      })
+    ).json();
+
+    const mkReview = async (agentId: string, at: string) =>
+      (
+        await db
+          .insert(t.reviews)
+          .values({ workspaceId, prId: pr.id, agentId, kind: 'review', createdAt: new Date(at) })
+          .returning()
+      )[0]!;
+    const mkFinding = (reviewId: string, severity: string, extra: Partial<typeof t.findings.$inferInsert> = {}) =>
+      db.insert(t.findings).values({
+        reviewId,
+        file: 'a.ts',
+        startLine: 1,
+        endLine: 1,
+        severity,
+        category: 'bug',
+        title: `${severity} finding`,
+        rationale: 'r',
+        confidence: 0.9,
+        ...extra,
+      });
+
+    const aOld = await mkReview(agentA.id, '2026-01-01T00:00:00Z');
+    const aNew = await mkReview(agentA.id, '2026-01-02T00:00:00Z');
+    const bNew = await mkReview(agentB.id, '2026-01-02T00:00:00Z');
+    await mkFinding(aOld.id, 'CRITICAL'); // superseded by agent A's newer run
+    await mkFinding(aNew.id, 'WARNING');
+    await mkFinding(aNew.id, 'WARNING', { dismissedAt: new Date() }); // dismissed
+    await mkFinding(bNew.id, 'CRITICAL');
+    await mkFinding(bNew.id, 'SUGGESTION');
+
+    const list = (await app.inject({ method: 'GET', url: `/repos/${repo.id}/pulls` })).json();
+    const row = list.find((p: { id: string }) => p.id === pr.id);
+    expect(row.findings_summary.total).toBe(3);
+    expect(row.findings_summary.counts).toEqual({ CRITICAL: 1, WARNING: 1, SUGGESTION: 1 });
+    expect(row.findings_summary.preview[0].severity).toBe('CRITICAL');
+
+    const emptyList = (await app.inject({ method: 'GET', url: `/repos/${emptyPr.repoId}/pulls` })).json();
+    expect(emptyList.find((p: { id: string }) => p.id === emptyPr.id).findings_summary).toBeNull();
+
+    await app.close();
+  });
+
   it('dual-provider structured output: anthropic provider returns the same Review shape', async () => {
     const app = await appWith(REVIEW_FIXTURE, 'anthropic');
     const { pr } = await setupRepoAndPr(pg.handle.db, workspaceId);

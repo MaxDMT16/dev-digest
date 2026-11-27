@@ -5,6 +5,7 @@ import { Icon, Badge, Button, SectionLabel, EmptyState } from "@devdigest/ui";
 import { RunStatus } from "../RunStatus";
 import { RunHistory } from "../RunHistory/RunHistory";
 import { ReviewRunAccordion } from "../ReviewRunAccordion";
+import { countBySeverity } from "@/lib/findings";
 import { s } from "./styles";
 import type { FindingRecord, ReviewRecord, RunSummary, PrCommit } from "@devdigest/shared";
 import type { UseMutationResult } from "@tanstack/react-query";
@@ -44,6 +45,19 @@ export function FindingsTab({
   const runsById = useMemo(
     () => new Map((prRuns ?? []).map((r) => [r.run_id, r])),
     [prRuns],
+  );
+
+  const severityByRun = useMemo(
+    () =>
+      new Map(
+        runs.filter((r) => r.run_id).map((r) => [r.run_id as string, countBySeverity(r.findings)]),
+      ),
+    [runs],
+  );
+
+  const findingsByRun = useMemo(
+    () => new Map(runs.filter((r) => r.run_id).map((r) => [r.run_id as string, r.findings])),
+    [runs],
   );
 
   const handleCancelAll = useCallback(() => {
@@ -139,6 +153,10 @@ export function FindingsTab({
             onOpenTrace={handleOpenTrace}
             onGoToReview={handleGoToReview}
             onDelete={handleDelete}
+            severityByRun={severityByRun}
+            findingsByRun={findingsByRun}
+            repoFullName={repoFullName}
+            headSha={headSha}
           />
         </div>
       )}

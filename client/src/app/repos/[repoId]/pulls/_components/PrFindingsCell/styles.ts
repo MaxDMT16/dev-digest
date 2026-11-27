@@ -1,0 +1,56 @@
+import type { CSSProperties } from "react";
+
+export const s = {
+  cell: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 12.5,
+    outline: "none",
+  } satisfies CSSProperties,
+  mark: (color: string): CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
+    color,
+    textDecoration: "underline dotted",
+    textUnderlineOffset: 3,
+  }),
+  popover: (top: number, left: number): CSSProperties => ({
+    position: "fixed",
+    top,
+    left,
+    zIndex: 1000,
+    width: 340,
+    background: "var(--bg-elevated, var(--bg-surface))",
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    boxShadow: "0 8px 24px rgba(0,0,0,.35)",
+    padding: 12,
+    cursor: "default",
+  }),
+  title: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "var(--text-primary)",
+    marginBottom: 8,
+  } satisfies CSSProperties,
+  list: { listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 } satisfies CSSProperties,
+  item: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } satisfies CSSProperties,
+  itemHead: { display: "flex", alignItems: "center", gap: 6, minWidth: 0 } satisfies CSSProperties,
+  itemTitle: {
+    fontSize: 12.5,
+    color: "var(--text-primary)",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  } satisfies CSSProperties,
+  itemFile: {
+    fontSize: 11.5,
+    color: "var(--text-muted)",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  } satisfies CSSProperties,
+  more: { marginTop: 8, fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+};

@@ -60,4 +60,21 @@ describe("PRRow — cost cell", () => {
     renderRow(pr({ usage_total: null }));
     expect(screen.getByLabelText("No cost data")).toHaveTextContent("—");
   });
+
+  it("renders severity marks from findings_summary, and a dash without one", () => {
+    const { unmount } = renderRow(
+      pr({
+        findings_summary: {
+          total: 3,
+          counts: { CRITICAL: 1, WARNING: 2, SUGGESTION: 0 },
+          preview: [],
+        },
+      }),
+    );
+    expect(screen.getByLabelText("1 critical")).toBeTruthy();
+    expect(screen.getByLabelText("2 warning")).toBeTruthy();
+    unmount();
+    renderRow(pr({ findings_summary: null }));
+    expect(screen.queryByLabelText(/critical|warning|suggestion/)).toBeNull();
+  });
 });

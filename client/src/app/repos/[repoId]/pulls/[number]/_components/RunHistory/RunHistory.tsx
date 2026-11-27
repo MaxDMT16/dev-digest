@@ -2,9 +2,11 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Badge, Icon, CircularScore, type IconName } from "@devdigest/ui";
-import type { RunSummary, PrCommit } from "@devdigest/shared";
+import { Badge, Icon, CircularScore, SEV, type IconName } from "@devdigest/ui";
+import type { RunSummary, PrCommit, Severity, FindingRecord } from "@devdigest/shared";
+import type { SeverityCounts } from "@/lib/findings";
 import { formatTokenTotal, formatUsd } from "@/lib/format-usage";
+import { RunFindingsModal } from "./RunFindingsModal";
 
 /**
  * PR timeline — every agent run interleaved with the PR's commits, newest-first
@@ -35,6 +37,8 @@ function outcomeOf(run: RunSummary): Outcome {
     return { key: "reviewed", color: "var(--warn)", bg: "var(--warn-bg)", icon: "MessageSquare" };
   return { key: "approved", color: "var(--ok)", bg: "var(--ok-bg)", icon: "CheckCircle" };
 }
+
+const SEVERITY_ORDER: Severity[] = ["CRITICAL", "WARNING", "SUGGESTION"];
 
 const rowStyle: React.CSSProperties = {
   display: "flex",
@@ -91,6 +95,10 @@ export function RunHistory({
   onOpenTrace,
   onGoToReview,
   onDelete,
+  severityByRun,
+  findingsByRun,
+  repoFullName,
+  headSha,
 }: {
   runs: RunSummary[];
   commits?: PrCommit[];
@@ -99,8 +107,16 @@ export function RunHistory({
   /** Jump to this run's inline review accordion below (clicking the agent name). */
   onGoToReview?: (runId: string) => void;
   onDelete?: (runId: string) => void;
+  /** Per-run severity counts; runs with an entry show compact marks instead of "N findings". */
+  severityByRun?: Map<string, SeverityCounts>;
+  /** Per-run findings; runs with an entry get clickable marks that open a findings modal. */
+  findingsByRun?: Map<string, FindingRecord[]>;
+  repoFullName?: string | null;
+  headSha?: string | null;
 }) {
   const t = useTranslations("prReview");
+  const [modal, setModal] = React.useState<{ runId: string; level: Severity } | null>(null);
+  const closeModal = React.useCallback(() => setModal(null), []);
   if (runs.length === 0 && commits.length === 0) return null;
 
   const items: TimelineItem[] = [
@@ -150,6 +166,7 @@ export function RunHistory({
         const r = item.run;
         const o = outcomeOf(r);
         const settled = r.status === "done";
+        const sev = settled ? severityByRun?.get(r.run_id) : undefined;
         return (
           <div key={`run:${r.run_id}`} style={rowStyle}>
             <Badge color={o.color} bg={o.bg} icon={o.icon}>
@@ -191,7 +208,57 @@ export function RunHistory({
               )}
               {settled && (
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  {t("runStatus.findings", { count: r.findings_count ?? 0 })}
+                  {sev ? (
+                    <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                      {SEVERITY_ORDER.filter((l) => sev[l] > 0).map((l) => {
+                        const I = Icon[SEV[l].icon];
+                        const label = t("timeline.severityCount", {
+                          count: sev[l],
+                          level: SEV[l].label.toLowerCase(),
+                        });
+                        const markStyle: React.CSSProperties = {
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                          color: SEV[l].c,
+                          textDecoration: "underline dotted",
+                          textUnderlineOffset: 3,
+                        };
+                        const content = (
+                          <>
+                            <I size={12} />
+                            <span className="tnum">{sev[l]}</span>
+                          </>
+                        );
+                        // No findings loaded for this run: keep a static mark (nothing to show).
+                        if (!findingsByRun?.has(r.run_id)) {
+                          return (
+                            <span key={l} title={label} aria-label={label} style={markStyle}>
+                              {content}
+                            </span>
+                          );
+                        }
+                        return (
+                          <button
+                            key={l}
+                            type="button"
+                            title={label}
+                            aria-label={label}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setModal({ runId: r.run_id, level: l });
+                            }}
+                            className="rounded px-1 hover:bg-[var(--bg-hover)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]"
+                            style={{ ...markStyle, background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer" }}
+                          >
+                            {content}
+                          </button>
+                        );
+                      })}
+                    </span>
+                  ) : (
+                    t("runStatus.findings", { count: r.findings_count ?? 0 })
+                  )}
                   {(r.blockers ?? 0) > 0 ? t("runStatus.blockers", { count: r.blockers ?? 0 }) : ""}
                 </div>
               )}
@@ -228,6 +295,24 @@ export function RunHistory({
           </div>
         );
       })}
+      {modal && (
+        <RunFindingsModal
+          agentName={runs.find((x) => x.run_id === modal.runId)?.agent_name ?? "Agent"}
+          level={modal.level}
+          findings={findingsByRun?.get(modal.runId) ?? []}
+          repoFullName={repoFullName}
+          headSha={headSha}
+          onGoToReview={
+            onGoToReview
+              ? () => {
+                  onGoToReview(modal.runId);
+                  setModal(null);
+                }
+              : undefined
+          }
+          onClose={closeModal}
+        />
+      )}
     </div>
   );
 }

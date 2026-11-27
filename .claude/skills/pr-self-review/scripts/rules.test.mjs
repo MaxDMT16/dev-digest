@@ -106,6 +106,25 @@ test("cross-package import without workflow paths is high; with paths is fine", 
   done(r);
 });
 
+test("cross-package import: no workflow / unfiltered workflow flags; matching path does not", async () => {
+  const r = base();
+  r.put("client/src/b.tsx", '1\nimport x from "../../server/src/y";\n');
+  let f = by(await run(r), "cross-package-without-ci-paths");
+  assert.equal(f.length, 1); assert.match(f[0].fix, /workflow/);
+  r.put(".github/workflows/client.yml", "on:\n  push:\njobs:\n  a:\n    steps:\n      - uses: x\n");
+  assert.equal(by(await run(r), "cross-package-without-ci-paths").length, 1);
+  r.put(".github/workflows/client.yml", WF("client", ["server"]));
+  assert.equal(by(await run(r), "cross-package-without-ci-paths").length, 0);
+  done(r);
+});
+
+test("sk- regex needs a left boundary", async () => {
+  const r = base();
+  r.put("server/src/a.ts", "1\nconst a = 'task-" + "x".repeat(30) + "';\n");
+  assert.equal(by(await run(r), "secret-in-diff").length, 0);
+  done(r);
+});
+
 test("spec-first: many files / big diff / sensitive path without spec; spec silences", async () => {
   const r = base();
   for (let i = 0; i < 6; i++) r.put(`server/src/f${i}.ts`, "x\n");

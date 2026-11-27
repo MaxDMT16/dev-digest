@@ -10,7 +10,7 @@ const SPEC_PKGS = ["server", "client", "reviewer-core"];
 const SPEC_TOUCH = ["adapters/", "platform/container.ts", "vendor/shared", "db/migrations"];
 const CC_RE = /^(feat|fix|docs|chore|refactor|test|perf|build|ci|style|revert)(\(.+\))?!?: /;
 const SECRET_RES = [
-  /sk-[A-Za-z0-9_-]{20,}/,
+  /(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}/,
   /ghp_[A-Za-z0-9]{30,}/,
   /github_pat_[A-Za-z0-9_]{22,}/,
   /AKIA[0-9A-Z]{16}/,
@@ -54,7 +54,14 @@ function workflowPaths(cwd, tree) {
     .split("\n").filter((n) => /\.ya?ml$/.test(n));
   return names.map((n) => {
     const text = gitTry(["show", `${tree}:${n}`], { cwd, raw: true }) ?? "";
-    const paths = [...text.matchAll(/^\s*-\s*['"]?([^'"\s#]+)['"]?\s*$/gm)].map((m) => m[1]);
+    const paths = [];
+    let inPaths = false;
+    for (const l of text.split("\n")) {
+      if (/^\s*paths:\s*$/.test(l)) { inPaths = true; continue; }
+      const item = /^\s*-\s*['"]?([^'"\s#]+)['"]?\s*(#.*)?$/.exec(l);
+      if (inPaths && item) paths.push(item[1]);
+      else if (!/^\s*(#.*)?$/.test(l)) inPaths = false;
+    }
     return { name: n, paths };
   });
 }
@@ -154,13 +161,16 @@ export async function runRules(ctx) {
       else target = /(?:\.\.\/)+(server|client|reviewer-core|e2e)\//.exec(text)?.[1] ?? null;
       if (!target || target === pkg || seen.has(`${pkg}>${target}`)) continue;
       const own = flows.filter((w) => w.paths.some((p) => p.startsWith(`${pkg}/`)));
-      if (!own.length) continue; // no CI for this package: nothing to keep in sync
       if (own.some((w) => w.paths.some((p) => p.startsWith(`${target}/`)))) continue;
       seen.add(`${pkg}>${target}`);
       findings.push(finding({
         file, line, rule: "cross-package-without-ci-paths", severity: "high",
-        evidence: `${pkg} now imports ${target} but ${own.map((w) => w.name).join(", ")} paths: has no ${target}/**`,
-        fix: `Add '${target}/**' to the paths: filters of ${own.map((w) => w.name).join(", ")}.`,
+        evidence: own.length
+          ? `${pkg} now imports ${target} but ${own.map((w) => w.name).join(", ")} paths: has no ${target}/**`
+          : `${pkg} now imports ${target} but no .github/workflows/*.yml has a paths: filter for ${pkg}/**`,
+        fix: own.length
+          ? `Add '${target}/**' to the paths: filters of ${own.map((w) => w.name).join(", ")}.`
+          : `Add or update a workflow with a paths: filter covering '${pkg}/**' and '${target}/**'.`,
       }));
     }
   }

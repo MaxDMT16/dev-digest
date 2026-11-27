@@ -21,6 +21,7 @@
 ## Recurring Errors & Fixes
 
 - `test/git-adapter-safety.test.ts` fails locally when your global git config signs commits with a passphrase-protected SSH key. The test runs a real `git commit`, which inherits `commit.gpgsign`. This is an environment problem, not a regression. The same signing setup blocks subagents from committing. With the user's OK, use `git -c commit.gpgsign=false commit …` and leave the git config alone.
+- `src/adapters/depgraph/index.ts` contains NUL bytes, so plain `grep -r` treats it as binary and silently skips it. An audit of "who imports `modules/`" then misses its `import … from '../../modules/repo-intel/constants.js'` (line 20). Use `grep -a` / `grep -rIa`, or `rg -a`, when auditing import boundaries.
 
 ## Session Notes
 

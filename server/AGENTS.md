@@ -44,6 +44,7 @@ Before finishing: typecheck + unit; integration when you touched DB/routes.
 
 ## Read when
 - changing routes, DI, or adding a module → [README.md](README.md)
+- deciding where backend code goes, layering or dependency direction (writing or reviewing) → [../.claude/skills/onion-architecture/SKILL.md](../.claude/skills/onion-architecture/SKILL.md)
 - before a medium+ change → [specs/README.md](specs/README.md) (template); runbooks, reports, ADRs → [docs/README.md](docs/README.md)
 - starting non-trivial work here, or after hitting a surprising gotcha → [INSIGHTS.md](INSIGHTS.md) (lessons for this package; filled automatically, may be empty)
 - touching `repo-intel` → [src/modules/repo-intel/README.md](src/modules/repo-intel/README.md)

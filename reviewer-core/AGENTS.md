@@ -37,6 +37,7 @@ npm test                  # vitest run
 
 ## Read when
 - changing the pipeline, prompt, grounding, or findings shape → [README.md](README.md)
+- adding imports, I/O or an `LLMProvider` change, or reviewing layering / dependency direction → [../.claude/skills/onion-architecture/SKILL.md](../.claude/skills/onion-architecture/SKILL.md)
 - before a medium+ change → [specs/README.md](specs/README.md) (template); runbooks, reports, ADRs → [docs/README.md](docs/README.md)
 - starting non-trivial work here, or after hitting a surprising gotcha → [INSIGHTS.md](INSIGHTS.md) (lessons for this package; filled automatically, may be empty)
 - editing reviewer prompts or choosing a model → [../docs/agent-prompts/README.md](../docs/agent-prompts/README.md)

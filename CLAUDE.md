@@ -31,6 +31,7 @@ Package-level run/test/typecheck commands are in each `<package>/CLAUDE.md`.
 - A change in `reviewer-core/` also affects `server` (it type-checks against that source): run server typecheck + unit tests too.
 - `server/src/vendor/shared` and `client/src/vendor/shared` are **separate copies that already differ**. When changing a shared Zod contract, edit the copy the package imports and check the other.
 - CI is path-filtered per package (`.github/workflows/*.yml`); when adding a cross-package import, update the `paths:` filters.
+- Medium+ size/risk changes need a spec first (rule in each `<package>/CLAUDE.md`). For a cross-package change, write one spec in the package that owns the contract/behaviour; the others link to it.
 - Conventional Commits (`feat(reviews): …`, `fix(dev): …`).
 
 ## Do not touch

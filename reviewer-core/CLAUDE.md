@@ -28,9 +28,16 @@ npm test                  # vitest run
 - `package-lock.json`: only via `npm install`. Don't mix in pnpm/yarn.
 - `node_modules/`.
 
+## Specs & docs
+**Spec first** for any change that is medium+ in size OR risk — write `specs/YYYY-MM-DD-<slug>.md` from the template in [specs/README.md](specs/README.md), link it from that README, and get the user's OK before coding. Update its `Status` when done. Skip for small/low-risk work (typo, copy, single-file bugfix, test-only, rename/refactor without behaviour change).
+- Medium+ size: new module/route/screen, ≳3 files or ≳150 changed lines, new dependency.
+- Medium+ risk (any one is enough): prompt or system-prompt text; grounding gate; untrusted-content fencing / injection guard; findings schema or score; `LLMProvider` / structured-output parsing; default model choice. Any change here also affects `server` — note that in the spec.
+
+**Docs:** runbooks, reports and decision records for this package go in `docs/` — layout and what belongs there in [docs/README.md](docs/README.md). Add or refresh one when you change something it describes.
+
 ## Read when
 - changing the pipeline, prompt, grounding, or findings shape → [README.md](README.md)
-- designing or changing engine behavior → [docs/](docs/README.md) and [specs/](specs/README.md)
+- before a medium+ change → [specs/README.md](specs/README.md) (template); runbooks, reports, ADRs → [docs/README.md](docs/README.md)
 - starting non-trivial work here, or after hitting a surprising gotcha → [INSIGHTS.md](INSIGHTS.md) (lessons for this package; filled automatically, may be empty)
 - editing reviewer prompts or choosing a model → [../docs/agent-prompts/README.md](../docs/agent-prompts/README.md)
 - writing or fixing tests / CI → [../TESTING.md](../TESTING.md)

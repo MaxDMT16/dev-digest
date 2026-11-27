@@ -28,8 +28,16 @@ Prefer the hermetic runner: flows 02/04/05 assume the seeded demo repo is the **
 - Never `docker compose down -v` to reset the dev DB — it deletes the `devdigest_pgdata` volume with all real repos/reviews.
 - `node_modules/`.
 
+## Specs & docs
+**Spec first** for any change that is medium+ in size OR risk — write `docs/specs/YYYY-MM-DD-<slug>.md` from the template in [docs/specs/README.md](docs/specs/README.md), link it from that README, and get the user's OK before coding. Update its `Status` when done. Skip for small/low-risk work (typo, copy, single flow tweak, selector fix).
+- Medium+ size: new flow or several flows at once, runner rewrite, new CI job, ≳3 files or ≳150 changed lines.
+- Medium+ risk (any one is enough): `run.ts` / `lib/assert.ts`; seed data assumptions (flows assume the demo repo is the only repo); `scripts/e2e.sh` ports or teardown; changing the hermetic stack; CI workflow `e2e-web.yml`.
+- `specs/` here means executable flows, not design specs — design specs always go in `docs/specs/`.
+
+**Docs:** runbooks, reports and decision records for this package go in `docs/` — layout and what belongs there in [docs/README.md](docs/README.md). Add or refresh one when you change something it describes.
+
 ## Read when
 - adding or changing a flow, or debugging the runner → [README.md](README.md)
-- documenting e2e design decisions → [docs/](docs/README.md) (flows themselves stay in `specs/`)
+- before a medium+ change → [docs/specs/README.md](docs/specs/README.md) (template); runbooks, reports, coverage map → [docs/README.md](docs/README.md)
 - starting non-trivial work here, or after hitting a surprising gotcha → [INSIGHTS.md](INSIGHTS.md) (lessons for this package; filled automatically, may be empty)
 - CI behavior (`e2e-web.yml`) → [../TESTING.md](../TESTING.md)

@@ -35,9 +35,16 @@ Before finishing: typecheck + unit; integration when you touched DB/routes.
 - `pnpm-lock.yaml`: only via `pnpm add/remove`. Don't mix in npm/yarn.
 - `clones/` (runtime git clones), `dist/`, `node_modules/`, `.env`.
 
+## Specs & docs
+**Spec first** for any change that is medium+ in size OR risk — write `specs/YYYY-MM-DD-<slug>.md` from the template in [specs/README.md](specs/README.md), link it from that README, and get the user's OK before coding. Update its `Status` when done. Skip for small/low-risk work (typo, copy, single-file bugfix, test-only, rename/refactor without behaviour change).
+- Medium+ size: new module/route/screen, ≳3 files or ≳150 changed lines, new dependency.
+- Medium+ risk (any one is enough): DB schema/migration; shared Zod contract or route request/response shape; DI/adapters (LLM, GitHub, git, secrets); auth/secrets handling; review-run orchestration or anything calling `reviewer-core`.
+
+**Docs:** runbooks, reports and decision records for this package go in `docs/` — layout and what belongs there in [docs/README.md](docs/README.md). Add or refresh one when you change something it describes.
+
 ## Read when
 - changing routes, DI, or adding a module → [README.md](README.md)
-- designing or changing a feature/contract → [docs/](docs/README.md) and [specs/](specs/README.md)
+- before a medium+ change → [specs/README.md](specs/README.md) (template); runbooks, reports, ADRs → [docs/README.md](docs/README.md)
 - starting non-trivial work here, or after hitting a surprising gotcha → [INSIGHTS.md](INSIGHTS.md) (lessons for this package; filled automatically, may be empty)
 - touching `repo-intel` → [src/modules/repo-intel/README.md](src/modules/repo-intel/README.md)
 - writing or fixing tests / CI → [../TESTING.md](../TESTING.md)

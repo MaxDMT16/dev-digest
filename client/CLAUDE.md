@@ -32,9 +32,16 @@ Before finishing: `pnpm typecheck && pnpm test`.
 - `pnpm-lock.yaml`: only via `pnpm add/remove`. Don't mix in npm/yarn.
 - `.next/`, `node_modules/`, `.env`, `next-env.d.ts`.
 
+## Specs & docs
+**Spec first** for any change that is medium+ in size OR risk — write `specs/YYYY-MM-DD-<slug>.md` from the template in [specs/README.md](specs/README.md), link it from that README, and get the user's OK before coding. Update its `Status` when done. Skip for small/low-risk work (typo, copy, single-file bugfix, test-only, rename/refactor without behaviour change).
+- Medium+ size: new module/route/screen, ≳3 files or ≳150 changed lines, new dependency.
+- Medium+ risk (any one is enough): shared Zod contract consumed from `@devdigest/shared`; `src/lib/api.ts` or data hooks/caching (TanStack Query keys); routing/layout (app-shell); i18n message structure; review/findings surfaces.
+
+**Docs:** runbooks, reports and decision records for this package go in `docs/` — layout and what belongs there in [docs/README.md](docs/README.md). Add or refresh one when you change something it describes.
+
 ## Read when
 - adding or changing a route/screen → [README.md](README.md) (route map)
-- designing or changing a feature → [docs/](docs/README.md) and [specs/](specs/README.md)
+- before a medium+ change → [specs/README.md](specs/README.md) (template); runbooks, reports, ADRs → [docs/README.md](docs/README.md)
 - starting non-trivial work here, or after hitting a surprising gotcha → [INSIGHTS.md](INSIGHTS.md) (lessons for this package; filled automatically, may be empty)
 - API shape questions → [../server/README.md](../server/README.md)
 - writing or fixing tests / CI → [../TESTING.md](../TESTING.md)

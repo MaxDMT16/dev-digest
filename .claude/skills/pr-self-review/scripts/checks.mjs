@@ -2,6 +2,7 @@
 // CLI: node checks.mjs [--base origin/main] [--cwd dir] [--packages a,b] [--fresh]
 // Prints JSON {status: pass|fail|error, results, recommendations}; stdout is JSON only.
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -17,14 +18,23 @@ export function loadChecksConfig(path = join(here, "..", "checks.json")) {
 /** Default runner: runs a shell command in cwd with a timeout. Resolves {code, output}. */
 export function shellRunner(cmd, { cwd, timeout }) {
   return new Promise((resolve) => {
-    const child = spawn(cmd, { cwd, shell: true, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(cmd, { cwd, shell: true, detached: true, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
+    let done = false;
+    const finish = (r) => { if (done) return; done = true; clearTimeout(timer); resolve(r); };
     const add = (b) => { out = (out + b).slice(-64 * 1024); };
     child.stdout.on("data", add);
     child.stderr.on("data", add);
-    const timer = setTimeout(() => { out += `\n[timed out after ${timeout}ms]`; child.kill("SIGKILL"); }, timeout);
-    child.on("error", (e) => { clearTimeout(timer); resolve({ code: 127, output: String(e) }); });
-    child.on("close", (code) => { clearTimeout(timer); resolve({ code: code ?? 1, output: out }); });
+    const timer = setTimeout(() => {
+      out += `\n[timed out after ${timeout}ms]`;
+      // Kill the whole process group (sh wrapper + pnpm/vitest grandchildren) and
+      // resolve without waiting for `close`, which grandchildren holding the pipes can block.
+      try { process.kill(-child.pid, "SIGKILL"); } catch { try { child.kill("SIGKILL"); } catch {} }
+      child.stdout.destroy(); child.stderr.destroy();
+      finish({ code: 124, output: out, timedOut: true });
+    }, timeout);
+    child.on("error", (e) => finish({ code: 127, output: String(e) }));
+    child.on("close", (code) => finish({ code: code ?? 1, output: out }));
   });
 }
 
@@ -39,7 +49,8 @@ const tail = (s) => (s.length > TAIL ? "..." + s.slice(-TAIL) : s);
 
 async function checkPackage(pkg, { cwd, config, runner, tree, fresh, timeout }) {
   const spec = config.packages[pkg];
-  const key = packageKey(tree, pkg, config.keyDeps ?? {}, cwd);
+  const cmdHash = createHash("sha256").update(JSON.stringify(spec.commands)).digest("hex").slice(0, 10);
+  const key = `${packageKey(tree, pkg, config.keyDeps ?? {}, cwd)}+cmds=${cmdHash}`;
   const file = join(storageDir("checks", cwd), `${key.replace(/[^A-Za-z0-9=+.-]/g, "_")}.json`);
   if (!fresh && existsSync(file)) {
     try {
@@ -118,5 +129,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
   const out = await runChecks({ cwd, packages, files, fresh: o.fresh });
   process.stdout.write(JSON.stringify(out, null, 2) + "\n");
-  process.exit(out.status === "pass" ? 0 : 1);
+  process.exitCode = out.status === "pass" ? 0 : 1;
 }

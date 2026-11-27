@@ -63,3 +63,12 @@ test("CLI put/get findings and verify, hash and prune; stdout is JSON", () => {
   assert.match(JSON.parse(run(["hash", "--skill", "zod"])).skillHash, /^[0-9a-f]{16}$/);
   assert.equal(JSON.parse(run(["prune"])).removed, 0);
 });
+
+test("CLI rejects missing required args with exit 2 and JSON error", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const r = makeRepo(); r.put("a", "1"); r.commit("i");
+  const res = spawnSync("node", [join(here, "cache.mjs"), "get", "findings", "--cwd", r.d], { encoding: "utf8" });
+  assert.equal(res.status, 2);
+  assert.equal(JSON.parse(res.stderr).ok, false);
+  assert.equal(spawnSync("node", [join(here, "cache.mjs"), "get", "verify", "--cwd", r.d], { encoding: "utf8" }).status, 2);
+});

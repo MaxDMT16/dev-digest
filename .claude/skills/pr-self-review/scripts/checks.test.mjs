@@ -90,3 +90,22 @@ test("integration recommendation for db files", async () => {
   const res = await runChecks({ cwd: r.d, packages: ["server"], files: ["server/src/db/x.ts"], config, runner: fakeRunner([]) });
   assert.deepEqual(res.recommendations, ["run integration"]);
 });
+
+test("shellRunner times out quickly and kills grandchildren holding the pipes", async () => {
+  const { shellRunner } = await import("./checks.mjs");
+  const t0 = Date.now();
+  const r = await shellRunner("sh -c 'sleep 30' & sleep 30", { cwd: process.cwd(), timeout: 300 });
+  assert.ok(Date.now() - t0 < 5000);
+  assert.equal(r.code, 124);
+  assert.equal(r.timedOut, true);
+  assert.match(r.output, /timed out/);
+});
+
+test("editing the command list invalidates the cached pass", async () => {
+  const r = setup();
+  const calls = [];
+  await runChecks({ cwd: r.d, packages: ["server"], config, runner: fakeRunner(calls) });
+  const edited = { ...config, packages: { ...config.packages, server: { ...config.packages.server, commands: [{ name: "typecheck", cmd: "tc2" }] } } };
+  const res = await runChecks({ cwd: r.d, packages: ["server"], config: edited, runner: fakeRunner(calls) });
+  assert.equal(res.results[0].cached, false);
+});

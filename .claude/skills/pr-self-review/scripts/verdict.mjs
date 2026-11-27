@@ -41,7 +41,7 @@ export function writeVerdict(verdict, key, { cwd = process.cwd(), base } = {}) {
   if (now !== key) {
     return { ok: false, error: "key mismatch: the code changed during the review, re-run it", expected: key, actual: now };
   }
-  const full = { ...verdict, key, createdAt: verdict.createdAt ?? new Date().toISOString() };
+  const full = { mergeBase: key.split(":")[0], ...verdict, key, createdAt: verdict.createdAt ?? new Date().toISOString() };
   writeFileSync(fileFor(key, cwd), JSON.stringify(full, null, 2));
   return { ok: true, key, status: full.status };
 }
@@ -64,13 +64,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (o._[0] === "write" && o.key) {
     const r = writeVerdict(JSON.parse(readFileSync(0, "utf8")), o.key, { cwd, base: o.base });
     print(r);
-    process.exit(r.ok ? 0 : 1);
+    process.exitCode = r.ok ? 0 : 1;
   } else if (o._[0] === "read" && o.key) {
     const v = readVerdict(o.key, { cwd });
     print(v ?? { ok: false, error: "no verdict for key" });
-    process.exit(v ? 0 : 1);
+    process.exitCode = v ? 0 : 1;
   } else {
     process.stderr.write("usage: verdict.mjs write|read --key <key> [--base b] [--cwd d]\n");
-    process.exit(2);
+    process.exitCode = 2;
   }
 }

@@ -100,14 +100,21 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   if (cmd === "hash") print({ skillHash: skillHash(o.skill) });
   else if (cmd === "prune") print({ removed: pruneAll(Number(o.days ?? 14), cwd) });
   else if ((cmd === "get" || cmd === "put") && (kind === "findings" || kind === "verify")) {
-    const key = keyFromArgs(kind, o);
-    if (cmd === "get") print(cacheGet(kind, key, { cwd, fresh: o.fresh }));
-    else {
-      cachePut(kind, key, JSON.parse(readFileSync(0, "utf8")), { cwd });
-      print({ ok: true, key });
+    const required = kind === "verify" ? ["id"] : ["skill", "mode", "path"];
+    const missing = required.filter((k) => !o[k]);
+    if (missing.length) {
+      process.stderr.write(JSON.stringify({ ok: false, error: `missing required args: ${missing.map((m) => "--" + m).join(", ")}` }) + "\n");
+      process.exitCode = 2;
+    } else {
+      const key = keyFromArgs(kind, o);
+      if (cmd === "get") print(cacheGet(kind, key, { cwd, fresh: o.fresh }));
+      else {
+        cachePut(kind, key, JSON.parse(readFileSync(0, "utf8")), { cwd });
+        print({ ok: true, key });
+      }
     }
   } else {
-    process.stderr.write("usage: cache.mjs hash|get|put|prune ...\n");
-    process.exit(2);
+    process.stderr.write(JSON.stringify({ ok: false, error: "usage: cache.mjs hash|get|put|prune ..." }) + "\n");
+    process.exitCode = 2;
   }
 }

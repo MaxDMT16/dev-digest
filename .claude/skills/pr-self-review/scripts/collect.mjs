@@ -54,8 +54,10 @@ export async function collect({ cwd = process.cwd(), base = "origin/main", fetch
   const warnings = [];
 
   if (fetch && base.startsWith("origin/")) {
-    if (gitTry(["fetch", "origin", base.slice("origin/".length)], { cwd: root }) === null) {
-      warnings.push(`git fetch origin ${base.slice(7)} failed; using the local copy of ${base}`);
+    const name = base.slice("origin/".length);
+    const env = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+    if (gitTry(["fetch", "origin", name], { cwd: root, env }) === null) {
+      warnings.push(`git fetch origin ${name} failed; using the local copy of ${base}`);
     }
   }
   const mb = mergeBase(base, root);

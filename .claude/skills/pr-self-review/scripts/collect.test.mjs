@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
 import { route, findSkillDrift, loadRouting, collect } from "./collect.mjs";
-import { makeRepo } from "./lib.test.mjs";
+import { makeRepo } from "./test-helpers.mjs";
 import { headTree, mergeBase } from "./lib.mjs";
 
 const routing = loadRouting();

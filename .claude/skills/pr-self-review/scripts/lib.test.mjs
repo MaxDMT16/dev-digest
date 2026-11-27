@@ -1,23 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, mkdirSync, utimesSync, existsSync, rmSync } from "node:fs";
+import { writeFileSync, utimesSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { execFileSync } from "node:child_process";
 import {
   git, workingTree, headTree, subtreeSha, packageKey, storageDir, prune, matchAny, mergeBase, blobSha,
 } from "./lib.mjs";
-
-export function makeRepo() {
-  const d = mkdtempSync(join(tmpdir(), "psr-test-"));
-  const sh = (...a) => execFileSync("git", a, { cwd: d, stdio: "pipe" });
-  sh("init", "-q", "-b", "main");
-  sh("config", "user.email", "t@t"); sh("config", "user.name", "t");
-  sh("config", "commit.gpgsign", "false");
-  const put = (p, c) => { mkdirSync(join(d, p, ".."), { recursive: true }); writeFileSync(join(d, p), c); };
-  const commit = (m) => { sh("add", "-A"); sh("commit", "-q", "-m", m); };
-  return { d, sh, put, commit };
-}
+import { makeRepo } from "./test-helpers.mjs";
 
 test("working tree key equals HEAD tree after commit; real index untouched", () => {
   const r = makeRepo();

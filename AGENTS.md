@@ -23,6 +23,8 @@ Each package has the same doc set: `README.md`, `docs/`, `specs/`, `INSIGHTS.md`
 ./scripts/e2e.sh      # hermetic browser e2e on alternate ports; never touches the dev DB
 ```
 
+Before opening a PR run `/pr-self-review`; a hook blocks `gh pr create/merge` without a passing verdict.
+
 Package-level run/test/typecheck commands are in each `<package>/CLAUDE.md`.
 
 ## Cross-package gotchas

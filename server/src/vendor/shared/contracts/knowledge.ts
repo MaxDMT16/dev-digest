@@ -115,8 +115,17 @@ export type MemoryItem = z.infer<typeof MemoryItem>;
 export const SkillType = z.enum(['rubric', 'convention', 'security', 'custom']);
 export type SkillType = z.infer<typeof SkillType>;
 
-export const SkillSource = z.enum(['manual', 'imported_url', 'extracted', 'community']);
+export const SkillSource = z.enum([
+  'manual',
+  'imported_url',
+  'imported_file',
+  'extracted',
+  'community',
+]);
 export type SkillSource = z.infer<typeof SkillSource>;
+
+/** kebab-case, 2-64 chars. */
+export const SkillName = z.string().regex(/^[a-z0-9][a-z0-9-]{1,63}$/, 'kebab-case, 2-64 chars');
 
 export const Skill = z.object({
   id: z.string(),
@@ -131,14 +140,106 @@ export const Skill = z.object({
 });
 export type Skill = z.infer<typeof Skill>;
 
+/** Skill + 30d usage aggregates for list cards. Rates are null until there is data. */
+export const SkillListItem = Skill.extend({
+  usage: z.object({
+    agent_count: z.number().int(),
+    pull_rate: z.number().nullable(),
+    accept_rate: z.number().nullable(),
+  }),
+});
+export type SkillListItem = z.infer<typeof SkillListItem>;
+
+export const CreateSkillBody = z.object({
+  name: SkillName,
+  description: z.string().max(1000),
+  type: SkillType,
+  body: z.string().min(1).max(100_000),
+  enabled: z.boolean().optional(),
+});
+export type CreateSkillBody = z.infer<typeof CreateSkillBody>;
+
+export const UpdateSkillBody = CreateSkillBody.partial().extend({
+  version_message: z.string().max(200).optional(),
+});
+export type UpdateSkillBody = z.infer<typeof UpdateSkillBody>;
+
+export const SkillVersion = z.object({
+  version: z.number().int(),
+  body: z.string(),
+  description: z.string(),
+  message: z.string().nullable(),
+  created_at: z.string(),
+});
+export type SkillVersion = z.infer<typeof SkillVersion>;
+
+/** Correlational: describes runs where the skill was present, not its effect. */
+export const SkillStats = z.object({
+  agent_count: z.number().int(),
+  pull_rate: z.number().nullable(),
+  accept_rate: z.number().nullable(),
+  findings_30d: z.number().int(),
+  agents: z.array(z.object({ id: z.string(), name: z.string() })),
+  by_category: z.array(z.object({ category: z.string(), count: z.number().int() })),
+});
+export type SkillStats = z.infer<typeof SkillStats>;
+
+// ---- Skill import (preview → confirm; nothing is stored by preview) ----
+export const SkillImportRequest = z.object({
+  filename: z.string().min(1).max(255),
+  content_base64: z.string().min(1),
+});
+export type SkillImportRequest = z.infer<typeof SkillImportRequest>;
+
+export const SkillDraft = z.object({
+  name: z.string(),
+  description: z.string(),
+  type: SkillType,
+  body: z.string(),
+});
+export type SkillDraft = z.infer<typeof SkillDraft>;
+
+export const SkillImportWarning = z.object({ code: z.string(), message: z.string() });
+export type SkillImportWarning = z.infer<typeof SkillImportWarning>;
+
+export const SkillImportPreview = z.object({
+  draft: SkillDraft,
+  files: z.object({
+    used: z.string(),
+    ignored: z.array(z.object({ path: z.string(), reason: z.string() })),
+  }),
+  warnings: z.array(SkillImportWarning),
+});
+export type SkillImportPreview = z.infer<typeof SkillImportPreview>;
+
+export const SkillImportConfirm = z.object({
+  draft: z.object({
+    name: SkillName,
+    description: z.string().max(1000),
+    type: SkillType,
+    body: z.string().min(1).max(100_000),
+  }),
+  source: z.enum(['imported_file', 'community']),
+  origin: z.string().max(300).optional(),
+});
+export type SkillImportConfirm = z.infer<typeof SkillImportConfirm>;
+
 export const CommunitySkill = z.object({
+  slug: z.string(),
   name: z.string(),
   repo: z.string(),
   stars: z.number().int(),
   lang: z.string(),
   desc: z.string(),
+  tags: z.array(z.string()),
 });
 export type CommunitySkill = z.infer<typeof CommunitySkill>;
+
+export const CommunitySkillDetail = CommunitySkill.extend({
+  type: SkillType,
+  body: z.string(),
+});
+export type CommunitySkillDetail = z.infer<typeof CommunitySkillDetail>;
 
 // ---- Conventions ----
 export const ConventionCandidate = z.object({
@@ -188,6 +289,8 @@ export const Agent = z.object({
   // Inject repo-intel context (repo skeleton + callers + rank note) into this
   // agent's review prompt. Default on; gated again by the global flag.
   repo_intel: z.boolean().default(true),
+  // Count of enabled skill links (list cards). Optional: only list endpoints fill it.
+  skill_count: z.number().int().optional(),
 });
 export type Agent = z.infer<typeof Agent>;
 
@@ -195,8 +298,15 @@ export const AgentSkillLink = z.object({
   agent_id: z.string(),
   skill_id: z.string(),
   order: z.number().int(),
+  enabled: z.boolean().default(true),
 });
 export type AgentSkillLink = z.infer<typeof AgentSkillLink>;
+
+/** Full ordered set of an agent's skill links; array index = order. */
+export const SetAgentSkillsBody = z.object({
+  items: z.array(z.object({ skill_id: z.string().uuid(), enabled: z.boolean() })).max(200),
+});
+export type SetAgentSkillsBody = z.infer<typeof SetAgentSkillsBody>;
 
 // The immutable config snapshot captured in `agent_versions` whenever an agent's
 // config changes (everything but `enabled`). Mirrors the shape written by the

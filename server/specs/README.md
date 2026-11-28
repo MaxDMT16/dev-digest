@@ -37,4 +37,4 @@ Unit / integration / e2e: what is covered, and what is deliberately not.
 
 ## Index
 
-_None yet._
+- [2026-11-28 — Skills: storage, CRUD, import, agent binding, prompt injection](2026-11-28-skills.md) — `implemented` (owner spec; client and e2e specs link here)

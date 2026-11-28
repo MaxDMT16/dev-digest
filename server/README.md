@@ -6,8 +6,8 @@ grounded structured findings). Fastify 5 + Drizzle ORM over Postgres (pgvector).
 Adapters (LLM, GitHub, git, ast-grep, …) sit behind a DI container so they can be
 swapped for mocks in tests.
 
-> This is the **starter** module set. Later milestones add their own modules
-> (skills, intent/smart-diff, blast, brief/context/onboarding, eval/ci/hooks,
+> This is the **starter** module set plus **skills**. Later milestones add their own modules
+> (intent/smart-diff, blast, brief/context/onboarding, eval/ci/hooks,
 > memory, plugins, …) — each is a self-contained `modules/<name>/` plugin plus,
 > usually, a slot it starts feeding the reviewer prompt. The DB schema already
 > contains **every** table; the unused ones simply sit empty until a milestone fills
@@ -71,8 +71,9 @@ flowchart TB
   subgraph Review["Review & runs"]
     reviews["reviews<br/>/pulls/:id/review · /reviews · /findings/:id/(accept|dismiss)<br/>/runs/:id/(events|trace)"]
   end
-  subgraph Agents["Agents"]
-    agents["agents<br/>/agents · /agents/:id"]
+  subgraph Agents["Agents & skills"]
+    agents["agents<br/>/agents · /agents/:id · /agents/:id/skills (GET · POST · PUT)"]
+    skills["skills<br/>/skills · /skills/:id · /skills/:id/(versions|stats)<br/>/skills/import(/preview) · /skills/community"]
   end
   subgraph Intel["Repo intelligence"]
     repoIntel["repo-intel<br/>/repos/:id/index-state · /resync"]
@@ -106,7 +107,32 @@ through `SecretsProvider` (`~/.devdigest/secrets.json`, mode `0600`, with
 
 Migrations are **not** applied on boot — run `pnpm db:migrate` (pgvector is
 enabled by migration `0000`). `pnpm db:seed` is idempotent demo data
-(`acme/payments-api`, PR #482, the two built-in agents).
+(`acme/payments-api`, PR #482, the three built-in agents, six demo skills — three of them enabled on the Security Reviewer).
+
+## Skills
+
+A skill is a named block of instructions (`name`, directive `description`, `type`,
+markdown `body`) that is injected into an agent's prompt. Spec:
+[specs/2026-11-28-skills.md](specs/2026-11-28-skills.md).
+
+- **Storage:** `skills` (+ immutable `skill_versions`; a body or description change bumps
+  the version), `agent_skills` (order + per-agent `enabled`), `run_skills` (which skill
+  versions each run used). The DB is the source of truth.
+- **Injection:** `run-executor.ts` resolves skills enabled on the link **and** globally, in
+  `agent_skills.order`, formats one `<skill name=… type=… version=…>` block each
+  (`modules/skills/helpers.ts`) and passes them to `reviewer-core` (`skills`), which renders
+  them under `## Skills / rules`. Order = order of blocks in the prompt.
+- **Import** (`POST /skills/import/preview` → `POST /skills/import`): `.md`, or a
+  `.zip`/`.skill` archive. Only the core file (`SKILL.md`, or the single `.md`) is read;
+  scripts and everything else are listed as *not processed* and never executed. Preview
+  persists nothing; the confirmed skill is stored **disabled**. An imported skill is someone
+  else's instructions in your agent's prompt, so the UI shows a trust notice and the parser
+  returns warnings (HTML comments, invisible characters, URLs, long base64, size). Invisible
+  and bidi characters are stripped on every save path.
+- **Community catalog:** static and bundled (`modules/skills/community-catalog.ts`); no
+  outbound requests. Imports go through the same preview → confirm path.
+- **Stats** (`GET /skills/:id/stats`) are correlational: they count runs in which the skill
+  was present, not an effect of the skill.
 
 ## Review context (non-obvious)
 

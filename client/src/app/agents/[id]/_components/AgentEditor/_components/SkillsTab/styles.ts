@@ -1,0 +1,50 @@
+import type { CSSProperties } from "react";
+
+/** Co-located styles for the agent SkillsTab. */
+export const s = {
+  wrap: { maxWidth: 900 } satisfies CSSProperties,
+  head: { display: "flex", alignItems: "center", gap: 12 } satisfies CSSProperties,
+  h2: { fontSize: 18, fontWeight: 700 } satisfies CSSProperties,
+  search: {
+    marginLeft: "auto",
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "7px 12px",
+    borderRadius: 7,
+    border: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+    width: 220,
+  } satisfies CSSProperties,
+  searchIcon: { color: "var(--text-muted)" } satisfies CSSProperties,
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    background: "transparent",
+    border: "none",
+    outline: "none",
+    color: "var(--text-primary)",
+  } satisfies CSSProperties,
+  hint: { fontSize: 13, color: "var(--text-muted)", margin: "8px 0 16px" } satisfies CSSProperties,
+  list: { display: "flex", flexDirection: "column", gap: 8 } satisfies CSSProperties,
+  row: (active: boolean, over: boolean): CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 14px",
+    borderRadius: 8,
+    border: "1px solid " + (over ? "var(--accent)" : "var(--border)"),
+    background: active ? "var(--bg-hover)" : "var(--bg-elevated)",
+  }),
+  grip: (linked: boolean): CSSProperties => ({
+    color: "var(--text-muted)",
+    cursor: linked ? "grab" : "default",
+    opacity: linked ? 1 : 0.35,
+    display: "inline-flex",
+  }),
+  nameCol: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 } satisfies CSSProperties,
+  name: { fontSize: 14, fontWeight: 600 } satisfies CSSProperties,
+  off: { fontSize: 12, color: "var(--text-muted)" } satisfies CSSProperties,
+  moves: { display: "inline-flex", gap: 2 } satisfies CSSProperties,
+  link: { color: "var(--accent)", fontSize: 14, fontWeight: 600 } satisfies CSSProperties,
+} as const;

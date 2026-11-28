@@ -7,6 +7,7 @@ import {
   SECURITY_REVIEWER_PROMPT,
   PERFORMANCE_REVIEWER_PROMPT,
 } from './seed-prompts.js';
+import { SEED_SKILLS } from './seed-skills.js';
 
 /** Default provider/model for the built-in reviewer agents. */
 const DEFAULT_PROVIDER = 'openrouter' as const;
@@ -21,7 +22,8 @@ const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash';
  * with a few findings, and the three built-in agents (General + Security +
  * Performance), all on the default openrouter/deepseek-v4-flash provider+model.
  *
- * Later milestones populate the other tables (skills, conventions, memory, eval,
+ * Also seeds six demo skills (three enabled on the Security Reviewer).
+ * Later milestones populate the other tables (conventions, memory, eval,
  * …) once their features are built — they start empty here.
  */
 
@@ -238,6 +240,51 @@ export async function seed(db: Db): Promise<{ workspaceId: string; userId: strin
       .from(t.agents)
       .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, a.name)));
     if (!existing) await db.insert(t.agents).values(a);
+  }
+
+  // ---- demo skills (idempotent by name) + Security Reviewer links ----
+  const [securityAgent] = await db
+    .select()
+    .from(t.agents)
+    .where(and(eq(t.agents.workspaceId, workspaceId), eq(t.agents.name, 'Security Reviewer')));
+  for (const sk of SEED_SKILLS) {
+    let [skill] = await db
+      .select()
+      .from(t.skills)
+      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, sk.name)));
+    if (!skill) {
+      [skill] = await db
+        .insert(t.skills)
+        .values({
+          workspaceId,
+          name: sk.name,
+          description: sk.description,
+          type: sk.type,
+          source: sk.source,
+          body: sk.body,
+          enabled: sk.enabled,
+          version: 1,
+        })
+        .returning();
+      await db.insert(t.skillVersions).values({
+        skillId: skill!.id,
+        version: 1,
+        body: sk.body,
+        description: sk.description,
+        message: null,
+      });
+    }
+    if (securityAgent && skill) {
+      await db
+        .insert(t.agentSkills)
+        .values({
+          agentId: securityAgent.id,
+          skillId: skill.id,
+          order: sk.link.order,
+          enabled: sk.link.enabled,
+        })
+        .onConflictDoNothing();
+    }
   }
 
   return { workspaceId, userId };

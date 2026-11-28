@@ -1,0 +1,85 @@
+{
+  "skills": {
+    "frontend-architecture": {
+      "globs": ["client/src/**/*.{ts,tsx}"],
+      "quickFocus": null
+    },
+    "react-best-practices": {
+      "globs": ["client/src/**/*.tsx", "client/src/**/use*.ts", "client/src/lib/hooks/**"],
+      "quickFocus": "rules of hooks; `key` bugs that lose state"
+    },
+    "next-best-practices": {
+      "globs": ["client/src/app/**", "client/next.config.mjs"],
+      "content": "[\"']use (client|server)[\"']|from [\"']next/",
+      "contentGlobs": ["client/**/*.{ts,tsx,js,jsx,mjs}"],
+      "quickFocus": "server-only code or secrets in a client component"
+    },
+    "react-testing-library": {
+      "globs": ["client/src/**/*.test.{ts,tsx}", "client/src/test/**"],
+      "quickFocus": null
+    },
+    "onion-architecture": {
+      "globs": ["server/src/**/*.ts", "reviewer-core/src/**/*.ts"],
+      "exclude": ["server/src/db/migrations/**"],
+      "quickFocus": "onion checklist items 1-5"
+    },
+    "fastify-best-practices": {
+      "globs": [
+        "server/src/**/routes.ts",
+        "server/src/app.ts",
+        "server/src/server.ts",
+        "server/src/platform/**"
+      ],
+      "quickFocus": null
+    },
+    "drizzle-orm-patterns": {
+      "globs": [
+        "server/src/db/**",
+        "**/repository.ts",
+        "**/repository/**",
+        "server/drizzle.config.ts"
+      ],
+      "content": "drizzle-orm",
+      "contentGlobs": ["server/**/*.{ts,mjs,js}"],
+      "quickFocus": "destructive migrations; non-atomic writes"
+    },
+    "postgresql-table-design": {
+      "globs": [
+        "server/src/db/schema.ts",
+        "server/src/db/schema/**",
+        "server/src/db/migrations/**"
+      ],
+      "quickFocus": "data loss; NOT NULL without a default"
+    },
+    "zod": {
+      "globs": ["*/src/vendor/shared/**"],
+      "content": "from [\"']zod[\"']",
+      "contentGlobs": ["**/*.{ts,tsx,mjs,js}"],
+      "quickFocus": "broken contract between the vendor/shared copies"
+    },
+    "security": {
+      "globs": [
+        "{server,client,reviewer-core}/src/**",
+        ".env.example",
+        "scripts/**",
+        "docker-compose.yml",
+        ".github/workflows/**"
+      ],
+      "quickFocus": "exploitable CRITICAL/HIGH issues only"
+    },
+    "typescript-expert": {
+      "globs": ["**/tsconfig*.json", "**/*.d.ts"],
+      "quickFocus": null
+    }
+  },
+  "excluded": ["mermaid-diagram", "engineering-insights", "pr-self-review"],
+  "ignore": [
+    "**/pnpm-lock.yaml",
+    "**/package-lock.json",
+    "**/yarn.lock",
+    "**/node_modules/**",
+    "**/*.md",
+    "**/*.tsbuildinfo"
+  ],
+  "packages": ["server", "client", "reviewer-core", "e2e"]
+}

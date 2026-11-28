@@ -9,6 +9,7 @@ import { REVIEW_STRATEGY } from './constants.js';
 import { taskLine } from './helpers.js';
 import { loadDiff } from './diff-loader.js';
 import { formatCostPlain } from './format-cost.js';
+import { formatSkillBlock } from '../skills/helpers.js';
 
 /** Thrown by a run when the user cancels it mid-flight (between map files). */
 export class RunCancelledError extends Error {
@@ -161,6 +162,10 @@ export class ReviewRunExecutor {
 
     runLog.info(`Starting review with agent "${agent.name}" (${agent.provider}/${agent.model})`);
 
+    // Skill blocks injected into this run's prompt (kept outside `try` so the
+    // failure-path trace can still show what was sent).
+    let skillBlocks: string[] = [];
+
     try {
       // Resolve the agent's LLM provider. (container.llm throws if the provider
       // key is missing — caught below and persisted as a failed run.)
@@ -192,6 +197,18 @@ export class ReviewRunExecutor {
 
       const task = taskLine(pull) + rankNote;
 
+      // Skills: enabled on the link AND globally, in `agent_skills.order`. One
+      // block per skill; the engine renders them under "## Skills / rules".
+      const skills = await this.container.skillsRepo.resolvedForAgent(agent.id);
+      skillBlocks = skills.map(formatSkillBlock);
+      if (skills.length > 0) {
+        runLog.info(`Injecting ${skills.length} skill(s): ${skills.map((s) => s.name).join(', ')}`);
+        // Which skill VERSIONS this run used (feeds Stats). Never fails the review.
+        await this.container.skillsRepo
+          .recordRunSkills(runId, skills)
+          .catch((e: Error) => runLog.error(`Could not record run skills: ${e.message}`));
+      }
+
       // ---- Engine: assemble → single-pass → grounding -----------------------
       // The pure review pipeline lives in @devdigest/reviewer-core (shared with
       // the CI runner). The service owns only I/O: repo-intel context resolution
@@ -209,6 +226,8 @@ export class ReviewRunExecutor {
         ...(callersDigest ? { callers: callersDigest } : {}),
         // T3 — repo skeleton, same omit-when-empty contract.
         ...(repoMap ? { repoMap } : {}),
+        // Resolved skill blocks (ordered). Omitted when the agent has none.
+        ...(skillBlocks.length > 0 ? { skills: skillBlocks } : {}),
         // PR author's description/body — untrusted; assemblePrompt wraps +
         // truncates it. Omitted when the PR has no body.
         ...(pull.body ? { prDescription: pull.body } : {}),
@@ -329,7 +348,7 @@ export class ReviewRunExecutor {
         })
         .catch(() => undefined);
       await this.repo
-        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start))
+        .saveRunTrace(runId, this.traceFromBuffer(runId, pull, agent, '0/0 passed', Date.now() - start, skillBlocks))
         .catch(() => undefined);
       this.container.runBus.complete(runId);
       throw err;
@@ -434,6 +453,7 @@ export class ReviewRunExecutor {
     agent: AgentRow,
     grounding: string,
     durationMs = 0,
+    skillBlocks: string[] = [],
   ): RunTrace {
     return {
       config: {
@@ -445,7 +465,13 @@ export class ReviewRunExecutor {
         source: 'local',
       },
       stats: { duration_ms: durationMs, tokens_in: 0, tokens_out: 0, cost_usd: null, findings: 0, grounding },
-      prompt_assembly: { system: agent.systemPrompt, skills: null, memory: null, specs: null, user: '' },
+      prompt_assembly: {
+        system: agent.systemPrompt,
+        skills: skillBlocks.length > 0 ? skillBlocks.join('\n\n') : null,
+        memory: null,
+        specs: null,
+        user: '',
+      },
       tool_calls: [],
       raw_output: '',
       memory_pulled: [],

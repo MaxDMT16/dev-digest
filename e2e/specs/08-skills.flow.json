@@ -1,0 +1,33 @@
+{
+  "name": "Skills Lab lists seeded skills, opens one, and shows its attachment on the agent",
+  "description": "Loads /skills and confirms the seeded demo skills render as cards, opens lethal-trifecta — the FIRST card (the list is sorted by name and CI runs a short viewport, so a card further down is off-screen and agent-browser cannot click it) — (Config → Preview rendering its Markdown body → Versions history), then opens the Security Reviewer agent and confirms its Skills tab shows the seeded attachments ('3 of 6 enabled'). Read-only seeded data (no model call, no mutation, no drag/hover). Assumes a freshly seeded DB (server/src/db/seed-skills.ts): six skills, three enabled on Security Reviewer — guaranteed by the hermetic stack / e2e-web.yml; keep this flow's text in step with that seed.",
+  "steps": [
+    { "cmd": ["open", "{BASE}/skills"], "label": "load the skills page" },
+    { "cmd": ["wait", "--url", "/skills"], "label": "skills route reached" },
+    { "cmd": ["wait", "--load", "networkidle"], "label": "skills fetch settles" },
+    { "cmd": ["wait", "--text", "Add Skill"], "label": "the Add Skill menu is present" },
+    { "cmd": ["wait", "--text", "pr-quality-rubric"], "label": "seeded rubric card is visible" },
+    { "cmd": ["wait", "--text", "secret-leakage-gate"], "label": "seeded security card is visible" },
+    { "cmd": ["wait", "--text", "lethal-trifecta"], "label": "seeded trifecta card is visible" },
+    { "cmd": ["find", "text", "lethal-trifecta", "click"], "label": "open the first (visible) skill card" },
+    { "cmd": ["wait", "--url", "/skills/"], "label": "navigate to the skill detail route" },
+    { "cmd": ["wait", "--text", "Configuration"], "label": "Config tab renders" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Preview"], "label": "switch to the Preview tab" },
+    { "cmd": ["wait", "--url", "tab=preview"], "label": "preview tab is active in the URL" },
+    { "cmd": ["wait", "--text", "Rendered as the reviewing agent receives it"], "label": "preview caption renders" },
+    { "cmd": ["wait", "--text", "Flag a change when the same code path combines all three"], "label": "the Markdown body is rendered" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Versions"], "label": "switch to the Versions tab" },
+    { "cmd": ["wait", "--url", "tab=versions"], "label": "versions tab is active in the URL" },
+    { "cmd": ["wait", "--text", "Version history"], "label": "version history renders" },
+    { "cmd": ["wait", "--text", "Current"], "label": "the current version is marked" },
+    { "cmd": ["open", "{BASE}/agents"], "label": "load the agents page" },
+    { "cmd": ["wait", "--text", "Security Reviewer"], "label": "seeded agent card is visible" },
+    { "cmd": ["find", "text", "Security Reviewer", "click"], "label": "open the Security Reviewer editor" },
+    { "cmd": ["wait", "--url", "/agents/"], "label": "navigate to the agent editor route" },
+    { "cmd": ["wait", "--text", "Configuration"], "label": "agent Config tab renders" },
+    { "cmd": ["find", "role", "button", "click", "--name", "Skills", "--exact"], "label": "switch to the agent Skills tab" },
+    { "cmd": ["wait", "--url", "tab=skills"], "label": "skills tab is active in the URL" },
+    { "cmd": ["wait", "--text", "3 of 6 enabled"], "label": "agent shows its seeded skill attachments" },
+    { "cmd": ["wait", "--text", "lethal-trifecta"], "label": "an attached skill is listed" }
+  ]
+}

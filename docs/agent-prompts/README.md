@@ -27,18 +27,18 @@ receives exactly two messages:
 <INJECTION_GUARD>   // appended verbatim to EVERY agent, every run
 ```
 
-`INJECTION_GUARD` (`prompt.ts:16`) tells the model that everything inside
+`INJECTION_GUARD` (`prompt.ts:24`) tells the model that everything inside
 `<untrusted>…</untrusted>` is data, never instructions, and that claims like "test
 fixture / not for production / ignore this" never descope the review. You do not
 need to repeat any of this in your prompt — it is always there.
 
 **User message** = the task and all context, in this order, each untrusted block
-delimiter-wrapped (`prompt.ts:104-122`):
+delimiter-wrapped (`prompt.ts:113-129`):
 
 ```
 <task line, e.g. "Review PR #7 '…'">
 ## PR description        (untrusted, author-controlled, truncated to 4000 chars)
-## Skills / rules        (linked skill bodies)
+## Skills / rules        (linked skills: one <skill> block each, in link order)
 ## Relevant memory       (curated memory items)
 ## Repo skeleton         (untrusted, repo-derived)
 ## Project context       (untrusted spec chunks)
@@ -49,6 +49,29 @@ delimiter-wrapped (`prompt.ts:104-122`):
 Sections with no content are omitted. Everything repo- or author-derived is wrapped
 in `<untrusted source="…">…</untrusted>` so the model can tell instructions
 (system) from data (user).
+
+### Skills
+
+The Skills feature ([server/specs/2026-11-28-skills.md](../../server/specs/2026-11-28-skills.md))
+fills `## Skills / rules`. The server resolves the agent's skills that are enabled on the
+link **and** globally, in `agent_skills.order`, and formats one block per skill:
+
+```
+<skill name="pr-quality-rubric" type="rubric" version="5">
+Description: <directive description>
+
+<markdown body>
+</skill>
+```
+
+`</skill` inside a name, description or body is escaped, so a skill cannot close its own
+block early. Skill blocks are **not** wrapped in `<untrusted>`: they are the owner's
+instructions and must be able to steer the review. For imported and community skills the
+protection is upstream (preview + warnings, saved disabled, invisible characters stripped).
+
+Skill authors follow the same rules as prompt authors (checklist below): a skill must not
+define its own severity scale, verdict rules or output format. The engine enforces the
+output schema regardless, so such text only confuses the model.
 
 ## The output schema is NOT in the prompt
 

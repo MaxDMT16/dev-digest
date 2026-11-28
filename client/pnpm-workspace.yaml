@@ -1,0 +1,6 @@
+# pnpm 11 refuses to install (ERR_PNPM_IGNORED_BUILDS) when a dependency has a build
+# script that is neither allowed nor denied. esbuild ships its binary as a
+# platform package, so its install script is not needed. Deny it explicitly,
+# which is what pnpm 10 did implicitly.
+allowBuilds:
+  esbuild: false

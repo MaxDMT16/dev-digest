@@ -41,4 +41,4 @@ Which flows run, how the hermetic stack is verified (`../../../scripts/e2e.sh`).
 
 ## Index
 
-_None yet._
+- [2026-11-28 — e2e: Skills flow](2026-11-28-skills-flow.md) — `implemented` (behaviour: [server spec](../../../server/specs/2026-11-28-skills.md))

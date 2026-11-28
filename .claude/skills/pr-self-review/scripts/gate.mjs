@@ -8,10 +8,31 @@ import { repoRoot, mergeBase, headTree, verdictKey, gitTry, git } from "./lib.mj
 import { readVerdict } from "./verdict.mjs";
 
 // Anchored to command position so text that merely mentions the phrase (commit messages, echo) is not gated.
-const GH_ANCHORED = /(?:^|[;&|(\n]|\$\()\s*(?:\w+=\S*\s+)*(?:(?:command|exec|env|sudo|time)\s+)*gh\s+pr\s+(create|merge)\b/;
+const GH_ANCHORED = new RegExp(
+  // opener: start, separators, `{`/`!`, `$(`, or a shell keyword
+  String.raw`(?:^|[;&|(\n{!]|\$\(|\b(?:then|do|else|elif|if|while|until)\b)\s*` +
+    // env assignments (values may be quoted)
+    String.raw`(?:\w+=(?:"[^"]*"|'[^']*'|\S*)\s+)*` +
+    // wrapper words, each with optional flags (and one flag argument): time -p, sudo -u x, nice -n5, command --
+    String.raw`(?:(?:command|exec|env|sudo|time|nohup|nice)\s+(?:-\S*\s+(?:(?!gh\b)[\w.=-]+\s+)?|\w+=\S*\s+)*)*` +
+    // binary: optional path, optional quotes / backslash
+    String.raw`[\\"']?(?:\S*\/)?gh["']?\s+pr\s+(create|merge)\b`,
+);
 // Original unanchored match, used whenever the command wraps/evaluates other commands so nothing slips through.
 const GH_LOOSE = /\bgh\s+pr\s+(create|merge)\b/;
-const WRAPPED = /\b(?:ba|z)?sh\s+-c\b|\beval\b|\bxargs\b|\$\(|`/;
+const WRAPPED = /\b(?:ba|z|da)?sh\s+-\w*c\b|\beval\b|\bxargs\b|\$\(|`/;
+
+/** Cut a command tail at the first separator (&&, ||, ;, |, ), newline) that is not inside quotes. */
+function cutAtSeparator(s) {
+  let q = null;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) { if (c === q) q = null; continue; }
+    if (c === '"' || c === "'") q = c;
+    else if (c === ";" || c === "|" || c === "&" || c === ")" || c === "\n") return s.slice(0, i);
+  }
+  return s;
+}
 // Merge flags that take a value (the value must not be mistaken for the PR selector).
 const MERGE_VALUE_FLAGS = new Set(["--body", "-b", "--body-file", "-F", "--subject", "-t", "--match-head-commit", "--author-email", "-A"]);
 
@@ -21,7 +42,7 @@ const tokens = (cmd) => cmd.match(/"[^"]*"|'[^']*'|\S+/g)?.map((t) => t.replace(
 export function parseGh(command) {
   const m = GH_ANCHORED.exec(command) ?? (WRAPPED.test(command) ? GH_LOOSE.exec(command) : null);
   if (!m) return null;
-  const t = tokens(command.slice(m.index + m[0].length).split(/&&|\|\||;|\||\n/)[0]);
+  const t = tokens(cutAtSeparator(command.slice(m.index + m[0].length)));
   let base = null;
   let selector = null;
   let repo = null;

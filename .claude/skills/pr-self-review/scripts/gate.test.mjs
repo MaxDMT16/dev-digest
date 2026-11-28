@@ -126,6 +126,29 @@ test("command-position and wrapped invocations are still gated", () => {
   ]) assert.equal(run(r, c).code, 2, c);
 });
 
+test("evasion forms are gated (round 2)", () => {
+  const r = repo();
+  for (const c of [
+    "/opt/homebrew/bin/gh pr create", "\\gh pr create", '"gh" pr create', "'gh' pr create",
+    "if x; then gh pr create; fi", "{ gh pr create; }", "! gh pr create", "while true; do gh pr merge 5; done",
+    "time -p gh pr create", "command -- gh pr create", "env -i gh pr create", "sudo -u x gh pr create",
+    "nohup gh pr create", "nice -n5 gh pr create", 'FOO="a b" gh pr create', 'bash -lc "gh pr create"',
+    "env -i FOO=1 gh pr create",
+  ]) assert.equal(run(r, c).code, 2, c);
+});
+
+test("mentions with keywords-free text still pass through", () => {
+  const r = repo();
+  assert.equal(run(r, 'git commit -m "feat: gate gh pr create without verdict"').code, 0);
+  assert.equal(run(r, "echo gh pr merge is blocked").code, 0);
+});
+
+test("merge: separators inside quotes do not cut args", () => {
+  assert.deepEqual(parseGh('gh pr merge --body "fix; done" 5').positional, ["5"]);
+  assert.deepEqual(parseGh("gh pr merge 5 && echo hi").positional, ["5"]);
+  assert.equal(parseGh('gh pr create --title "a | b" --base dev').base, "dev");
+});
+
 test("merge: flag values do not leak into the selector", () => {
   assert.deepEqual(parseGh('gh pr merge 5 --squash --body "msg"').positional, ["5"]);
   assert.deepEqual(parseGh('gh pr merge --body "msg" 5 -R o/r').positional, ["5", "--repo", "o/r"]);

@@ -29,6 +29,11 @@ test("migrations skip onion but hit postgres; content patterns route", () => {
   assert.ok(r2.routes["drizzle-orm-patterns"]);
   const r3 = route(["client/src/lib/x.ts"], routing, () => "'use client'");
   assert.ok(r3.routes["next-best-practices"]);
+  const dq = (txt) => route(["client/src/lib/x.ts"], routing, () => txt).routes;
+  assert.ok(dq('"use client"')["next-best-practices"]);
+  assert.ok(dq('import x from "next/link"')["next-best-practices"]);
+  assert.ok(route(["server/src/x/s.ts"], routing, () => 'import { z } from "zod"').routes["zod"]);
+  assert.ok(route(["server/src/x/s.ts"], routing, () => "import { z } from 'zod'").routes["zod"]);
 });
 
 test("e2e source is uncovered; skill drift detected", () => {

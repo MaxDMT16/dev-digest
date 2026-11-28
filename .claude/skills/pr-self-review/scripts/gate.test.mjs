@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { spawnSync, execFileSync } from "node:child_process";
 import { makeRepo } from "./test-helpers.mjs";
 import { writeVerdict, currentKey } from "./verdict.mjs";
-import { decide, parseGh } from "./gate.mjs";
+import { decide, parseGh, runHook } from "./gate.mjs";
 
 const here = new URL(".", import.meta.url).pathname;
 
@@ -25,7 +25,7 @@ const run = (r, command) => {
 };
 const store = (r, status, extra = {}) => {
   const key = currentKey({ cwd: r.d, base: "main" });
-  assert.equal(writeVerdict({ status, base: "main", criticals: [], ...extra }, key, { cwd: r.d, base: "main" }).ok, true);
+  assert.equal(writeVerdict({ status, base: "main", criticals: [], checks: { status: "pass" }, ...extra }, key, { cwd: r.d, base: "main" }).ok, true);
 };
 
 test("non-gh command passes", () => {
@@ -49,10 +49,11 @@ test("dirty working copy adds a commit hint", () => {
 
 test("blocked verdict blocks and lists criticals", () => {
   const r = repo();
-  store(r, "blocked", { criticals: [{ path: "a.ts", title: "SQL injection" }] });
+  store(r, "blocked", { criticals: [{ path: "a.ts", title: "SQL injection" }, { file: "b.ts", line: 7, rule: "no-secret" }] });
   const o = run(r, "gh pr create");
   assert.equal(o.code, 2);
   assert.match(o.stderr, /SQL injection/);
+  assert.match(o.stderr, /b\.ts:7: no-secret/);
 });
 
 test("pass verdict allows, also when chained after other commands", () => {
@@ -242,4 +243,58 @@ test(".claude/settings.json registers the hook and is not git-ignored", () => {
   assert.equal(e.hooks[0].command, 'node "$CLAUDE_PROJECT_DIR/.claude/skills/pr-self-review/scripts/gate.mjs"');
   const ig = spawnSync("git", ["check-ignore", "-q", ".claude/settings.json"], { cwd: root });
   assert.equal(ig.status, 1);
+});
+
+test("gh pr new is gated like create", () => {
+  const r = repo();
+  assert.equal(parseGh("gh pr new --base dev").kind, "create");
+  assert.equal(parseGh("gh pr new --base dev").base, "dev");
+  assert.equal(run(r, "gh pr new").code, 2);
+  assert.equal(run(r, 'bash -c "gh pr new"').code, 2);
+  store(r, "pass");
+  assert.equal(run(r, "gh pr new").code, 0);
+});
+
+test("more wrappers (timeout, stdbuf, caffeinate, doas) are gated; timing stays linear", () => {
+  for (const c of [
+    "timeout 30 gh pr create", "timeout -k 5 30 gh pr create", "timeout --foreground 10s gh pr merge 5",
+    "timeout -s KILL 1m gh pr create", "stdbuf -oL gh pr create", "caffeinate gh pr create", "caffeinate -i gh pr merge 5",
+    "doas gh pr create", "doas -u x gh pr create", "sudo timeout 5 gh pr create", "timeout 5 env A=1 gh pr new",
+  ]) assert.notEqual(parseGh(c), null, c);
+  for (const c of ["timeout 30 echo gh pr create", "caffeinate echo hi", "timeout 5 gh pr view 1"]) assert.equal(parseGh(c), null, c);
+  for (const [c, kind] of [
+    ["timeout " + "-k 5 ".repeat(3000) + "30 gh pr create", "create"],
+    ["stdbuf " + "-oL ".repeat(5000) + "gh pr merge 5", "merge"],
+    ["doas " + "-a ".repeat(5000) + "x", null],
+  ]) {
+    const t0 = Date.now();
+    const p = parseGh(c);
+    assert.ok(Date.now() - t0 < 500, "slow: " + c.slice(0, 20));
+    assert.equal(p?.kind ?? null, kind, c.slice(0, 20));
+  }
+});
+
+test("create --head naming another branch blocks; current branch is fine", () => {
+  const r = repo();
+  store(r, "pass");
+  assert.equal(parseGh("gh pr create --head other").head, "other");
+  assert.equal(parseGh("gh pr create --head=o:b").head, "o:b");
+  const o = run(r, "gh pr create --head other");
+  assert.equal(o.code, 2);
+  assert.match(o.stderr, /--head 'other'/);
+  assert.equal(run(r, "gh pr create -H someone:other").code, 2);
+  assert.equal(run(r, "gh pr create --head feat").code, 0);
+  assert.equal(run(r, "gh pr create --head someone:feat").code, 0);
+});
+
+test("internal error fails closed for gated commands, open for others (injectable seam)", () => {
+  const boom = () => { throw new Error("kaboom"); };
+  const inp = (command) => JSON.stringify({ tool_input: { command }, cwd: process.cwd() });
+  for (const c of ["gh pr create", "gh pr new", "gh pr merge 5", 'x; bash -c "gh pr create"', "echo gh pr create | cat"]) {
+    const o = runHook(inp(c), { decideFn: boom });
+    assert.equal(o.code, 2, c);
+    assert.match(o.message, /kaboom/);
+  }
+  for (const c of ["git status", "gh pr view 1", ""]) assert.equal(runHook(inp(c), { decideFn: boom }).code, 0, c);
+  assert.equal(runHook("not json", { decideFn: boom }).code, 0);
 });

@@ -10,7 +10,7 @@
     },
     "next-best-practices": {
       "globs": ["client/src/app/**", "client/next.config.mjs"],
-      "content": "'use client'|'use server'|from 'next/",
+      "content": "[\"']use (client|server)[\"']|from [\"']next/",
       "contentGlobs": ["client/**/*.{ts,tsx,js,jsx,mjs}"],
       "quickFocus": "server-only code or secrets in a client component"
     },
@@ -53,7 +53,7 @@
     },
     "zod": {
       "globs": ["*/src/vendor/shared/**"],
-      "content": "from 'zod'",
+      "content": "from [\"']zod[\"']",
       "contentGlobs": ["**/*.{ts,tsx,mjs,js}"],
       "quickFocus": "broken contract between the vendor/shared copies"
     },

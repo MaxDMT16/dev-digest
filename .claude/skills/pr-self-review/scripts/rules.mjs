@@ -87,7 +87,7 @@ export async function runRules(ctx) {
   // 1. do-not-touch .env files
   for (const f of allFiles.filter((f) => ENV_FILES.includes(f))) {
     findings.push(finding({
-      file: f, rule: "do-not-touch-env", severity: "critical",
+      file: f, rule: "do-not-touch-env", severity: "critical", needsVerification: false,
       evidence: `${f} is part of the diff (git-ignored secrets file)`,
       fix: "Remove it from the change; edit .env.example instead.",
     }));

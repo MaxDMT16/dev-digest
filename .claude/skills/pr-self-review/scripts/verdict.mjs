@@ -26,11 +26,35 @@ export function currentKey({ cwd = process.cwd(), base = "origin/main" } = {}) {
   return verdictKey(mergeBase(base, root), workingTree(root));
 }
 
+/** Strings by which a waiver's `finding` may reference a critical: id, rule@file:line, file:line, rule/title. */
+function criticalRefs(c) {
+  if (typeof c === "string") return [c];
+  const file = c.file ?? c.path ?? "";
+  const loc = file ? `${file}${c.line != null ? `:${c.line}` : ""}` : "";
+  const rule = c.rule ?? c.title ?? "";
+  return [c.id, rule && loc ? `${rule}@${loc}` : null, loc || null, rule || null].filter(Boolean);
+}
+
+/** Why a "pass" verdict is not allowed, or null. pass needs checks.status "pass" and every critical waived. */
+function passRefusal(verdict) {
+  if (verdict.checks?.status !== "pass") {
+    return `status 'pass' requires checks.status === 'pass' (got ${JSON.stringify(verdict.checks?.status ?? null)})`;
+  }
+  const waived = new Set((verdict.waivers ?? []).map((w) => String(w?.finding ?? "")).filter(Boolean));
+  const open = (verdict.criticals ?? []).filter((c) => !criticalRefs(c).some((r) => waived.has(r)));
+  if (open.length) {
+    return `status 'pass' with unwaived critical(s): ${open.map((c) => criticalRefs(c)[0] ?? "?").join(", ")}`;
+  }
+  return null;
+}
+
 /** Validate, re-compute the key, refuse on mismatch, else persist. */
 export function writeVerdict(verdict, key, { cwd = process.cwd(), base } = {}) {
   if (!verdict || !["pass", "blocked"].includes(verdict.status)) {
     return { ok: false, error: "verdict.status must be 'pass' or 'blocked'" };
   }
+  const refusal = verdict.status === "pass" ? passRefusal(verdict) : null;
+  if (refusal) return { ok: false, error: refusal };
   const b = base ?? verdict.base ?? "origin/main";
   let now;
   try {

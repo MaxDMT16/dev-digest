@@ -103,6 +103,13 @@ export async function runChecks({
       fix: `Make \`${c.cmd}\` pass in ${r.package}/`, confidence: 1, needsVerification: false,
     })),
   );
+  for (const r of results.filter((x) => x.status === "error")) {
+    findings.push({
+      skill: "checks", file: null, line: null, rule: `${r.package}:not-checked`,
+      severity: "critical", skillSeverity: "critical", evidence: r.message ?? "",
+      fix: `Install dependencies in ${r.package}/ and re-run`, confidence: 1, needsVerification: false,
+    });
+  }
   return { status, results, findings, recommendations };
 }
 

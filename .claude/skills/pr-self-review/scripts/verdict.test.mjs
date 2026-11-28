@@ -14,7 +14,7 @@ function repo() {
   r.put("a.ts", "2");
   return r;
 }
-const v = (extra = {}) => ({ status: "pass", mode: "full", base: "main", criticals: [], waivers: [], ...extra });
+const v = (extra = {}) => ({ status: "pass", mode: "full", base: "main", checks: { status: "pass" }, criticals: [], waivers: [], ...extra });
 
 test("write succeeds with current key and readVerdict returns it", () => {
   const r = repo();
@@ -64,4 +64,27 @@ test("CLI write via stdin: exit 0 then exit 1 on mismatch, stdout JSON", () => {
   assert.equal(JSON.parse(bad.stdout).ok, false);
   const rd = execFileSync("node", [join(here, "verdict.mjs"), "read", "--key", key, "--cwd", r.d], { encoding: "utf8" });
   assert.equal(JSON.parse(rd).status, "pass");
+});
+
+test("pass is refused unless checks passed", () => {
+  const r = repo();
+  const key = currentKey({ cwd: r.d, base: "main" });
+  for (const checks of [undefined, { status: "fail" }, { status: "error" }]) {
+    const res = writeVerdict(v({ checks }), key, { cwd: r.d });
+    assert.equal(res.ok, false);
+    assert.match(res.error, /checks\.status/);
+  }
+  assert.equal(writeVerdict(v({ status: "blocked", checks: { status: "fail" } }), key, { cwd: r.d }).ok, true);
+});
+
+test("pass is refused with an unwaived critical, accepted when each is waived", () => {
+  const r = repo();
+  const key = currentKey({ cwd: r.d, base: "main" });
+  const crit = [{ file: "a.ts", line: 3, rule: "sql-injection" }, { id: "X1", file: "b.ts", rule: "secret" }];
+  const bad = writeVerdict(v({ criticals: crit, waivers: [{ finding: "sql-injection@a.ts:3", reason: "r" }] }), key, { cwd: r.d });
+  assert.equal(bad.ok, false);
+  assert.match(bad.error, /unwaived/);
+  const ok = writeVerdict(v({ criticals: crit, waivers: [{ finding: "a.ts:3", reason: "r" }, { finding: "X1", reason: "r" }] }), key, { cwd: r.d });
+  assert.equal(ok.ok, true);
+  assert.equal(writeVerdict(v({ criticals: ["legacy"], waivers: [{ finding: "legacy", reason: "r" }] }), key, { cwd: r.d }).ok, true);
 });

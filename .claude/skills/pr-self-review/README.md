@@ -26,7 +26,8 @@ Tests: `node --test .claude/skills/pr-self-review/scripts` (no dependencies).
 - Verdict key: `<merge-base>:<tree sha>`. The gate uses `HEAD^{tree}`; the skill computes the working-tree sha with a temporary index (the real index is untouched). After committing everything the two are equal.
 - Findings cache key: skill + skill content hash (skill dir, `reviewer-prompt.md`, `severity.md`, its `routing.json` entry) + mode + path + base blob + new blob. Editing a skill invalidates its cache.
 - Checks cache key: subtree sha of the package plus its key dependencies (`server` includes `reviewer-core`) plus a hash of the command list. Only passes are cached.
-- Storage: `<git-common-dir>/pr-self-review/{findings,verify,verdicts,reports}`, pruned after 14 days.
+- Storage: `<git-common-dir>/pr-self-review/{findings,verify,verdicts,checks,reports}`, pruned after 14 days.
+- Not gated: `gh api .../pulls` (REST) and user-defined `gh` aliases; the gate matches `gh pr create|new|merge` only. `gh pr create --head <other branch>` is blocked because the gate verifies only the checked-out HEAD.
 
 ## Adding or changing a skill
 

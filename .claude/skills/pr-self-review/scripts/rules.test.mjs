@@ -38,6 +38,7 @@ test(".env files are critical; skillSeverity mirrors severity", async () => {
   assert.equal(f[0].file, "server/.env");
   assert.equal(f[0].severity, "critical"); assert.equal(f[0].skillSeverity, "critical");
   assert.equal(f[0].skill, "repo-rules");
+  assert.equal(f[0].needsVerification, false);
   done(r);
 });
 

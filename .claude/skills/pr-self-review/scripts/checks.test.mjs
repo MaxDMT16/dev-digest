@@ -83,6 +83,10 @@ test("alsoChecks runs dependent package; missing node_modules is error", async (
   const err = await runChecks({ cwd: r2.d, packages: ["server"], config, runner: fakeRunner([]) });
   assert.equal(err.status, "error");
   assert.match(err.results[0].message, /node_modules/);
+  assert.equal(err.findings.length, 1);
+  assert.equal(err.findings[0].severity, "critical");
+  assert.match(err.findings[0].rule, /not-checked/);
+  assert.match(err.findings[0].evidence, /node_modules/);
 });
 
 test("integration recommendation for db files", async () => {

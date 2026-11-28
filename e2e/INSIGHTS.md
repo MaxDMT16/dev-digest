@@ -19,6 +19,8 @@
 - 2026-11-22: Run Cost Badge. Added the cost assertions to flows 02 and 04. The hermetic run passes all 7 flows. GitHub-offline warnings and `CONNECTION_ENDED` errors during teardown are expected noise.
 - 2026-11-28: Skills flow. Added `08-skills.flow.json` (passes). In this environment flows 04 and 05 FAIL at `open the PR row` (`find text "Add rate limiting…" click` right after `wait --url /pulls`), identically on a clean checkout of `HEAD` without the skills changes, so it is not caused by them. Flows 02 and 04/05 share that prefix, but only 02 has `wait --text "Add rate limiting…"` before the click; 04/05 look racy against the PR list render.
 
+- 2026-11-28 (later): Fixed the 04/05 race above by adding `wait --text "Add rate limiting to public API endpoints"` before the row click, exactly like flow 02 (hermetic run: 8/8 flows pass). Resolves the first Open Question below: it was a render race, not an `agent-browser` version issue. Rule for new flows: after `wait --url`, always `wait --text` for the element before `find text … click`.
+
 ## Open Questions
 
 - The 2026-11-22 note says all 7 flows passed in the hermetic run, but on 2026-11-28 04 and 05 fail on an unmodified `HEAD` (see above). Is that an `agent-browser` version difference or a render race that CI hides? Adding `wait --text "Add rate limiting to public API endpoints"` before the click in 04 and 05 would remove the race (not done: out of scope for the skills change).

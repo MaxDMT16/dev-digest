@@ -14,13 +14,13 @@ const GH_ANCHORED = new RegExp(
     // env assignments (values may be quoted)
     String.raw`(?:\w+=(?:"[^"]*"|'[^']*'|\S*)\s+)*` +
     // wrapper words, each with optional flags (and one flag argument): time -p, sudo -u x, nice -n5, command --
-    String.raw`(?:(?:command|exec|env|sudo|time|nohup|nice)\s+(?:-\S*\s+(?:(?!gh\b)[\w.=-]+\s+)?|\w+=\S*\s+)*)*` +
+    String.raw`(?:(?:command|exec|env|sudo|time|nohup|nice)\s+(?:-\S*\s+(?:(?!gh\b)[\w.]+\s+)?|\w+=\S*\s+)*)*` +
     // binary: optional path, optional quotes / backslash
     String.raw`[\\"']?(?:\S*\/)?gh["']?\s+pr\s+(create|merge)\b`,
 );
 // Original unanchored match, used whenever the command wraps/evaluates other commands so nothing slips through.
 const GH_LOOSE = /\bgh\s+pr\s+(create|merge)\b/;
-const WRAPPED = /\b(?:ba|z|da)?sh\s+-\w*c\b|\beval\b|\bxargs\b|\$\(|`/;
+const WRAPPED = /\b(?:ba|z|da)?sh\b[^|;&\n]*\s-\w*c\b|\beval\b|\bxargs\b|\$\(|`/;
 
 /** Cut a command tail at the first separator (&&, ||, ;, |, ), newline) that is not inside quotes. */
 function cutAtSeparator(s) {

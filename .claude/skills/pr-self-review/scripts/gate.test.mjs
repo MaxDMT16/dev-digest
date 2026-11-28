@@ -137,6 +137,30 @@ test("evasion forms are gated (round 2)", () => {
   ]) assert.equal(run(r, c).code, 2, c);
 });
 
+test("no catastrophic backtracking; correct result on long prefixes", () => {
+  const cases = [
+    ["sudo " + "-a ".repeat(300) + "gh pr create", "create"],
+    ["env " + "A=1 ".repeat(300) + "gh pr merge 5", "merge"],
+    ["sudo " + "-a ".repeat(300) + "x", null],
+    ["env " + "-i A=1 ".repeat(150) + "echo hi", null],
+    ["sh " + "-x ".repeat(300) + "-c 'gh pr create'", "create"],
+    ["sh " + "-x ".repeat(300) + "echo", null],
+  ];
+  for (const [c, kind] of cases) {
+    const t0 = Date.now();
+    const p = parseGh(c);
+    assert.ok(Date.now() - t0 < 500, "slow: " + c.slice(0, 30));
+    assert.equal(p?.kind ?? null, kind, c.slice(0, 30));
+  }
+});
+
+test("shell wrappers with extra flags are gated", () => {
+  const r = repo();
+  for (const c of ['bash -x -c "gh pr create"', 'bash --norc -c "gh pr create"', 'sh -ec "gh pr merge 5"']) {
+    assert.equal(run(r, c).code, 2, c);
+  }
+});
+
 test("mentions with keywords-free text still pass through", () => {
   const r = repo();
   assert.equal(run(r, 'git commit -m "feat: gate gh pr create without verdict"').code, 0);

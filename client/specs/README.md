@@ -37,4 +37,4 @@ Component / hook tests (RTL + jsdom) and e2e flows: what is covered, and what is
 
 ## Index
 
-_None yet._
+- [2026-11-28 — Skills UI: section, editor, import, agent Skills tab](2026-11-28-skills-ui.md) — `implemented` (contracts and behaviour: [server spec](../../server/specs/2026-11-28-skills.md))

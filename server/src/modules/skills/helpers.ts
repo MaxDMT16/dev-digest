@@ -1,23 +1,5 @@
-import type { Skill, SkillSource, SkillType } from '@devdigest/shared';
-import type { SkillRow } from '../../db/rows.js';
-
-/** Map a persisted skill row to the public `Skill` DTO. */
-export function toSkillDto(row: SkillRow): Skill {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    type: row.type as SkillType,
-    source: row.source as SkillSource,
-    body: row.body,
-    enabled: row.enabled,
-    version: row.version,
-    evidence_files: row.evidenceFiles ?? null,
-  };
-}
-
 /** Zero-width, bidi-control and similar invisible characters (they hide text from reviewers). */
-const INVISIBLE_RE = /[​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
+const INVISIBLE_RE = /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
 
 export function hasInvisibleChars(text: string): boolean {
   INVISIBLE_RE.lastIndex = 0;

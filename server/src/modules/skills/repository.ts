@@ -1,11 +1,36 @@
 import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm';
 import type { Db } from '../../db/client.js';
 import * as t from '../../db/schema.js';
-import type { SkillRow, SkillVersionRow } from '../../db/rows.js';
-import type { SkillSource, SkillType } from '@devdigest/shared';
+import type { Skill, SkillSource, SkillType, SkillVersion } from '@devdigest/shared';
 import { INITIAL_SKILL_VERSION, STATS_WINDOW_DAYS } from './constants.js';
 
-export type { SkillRow, SkillVersionRow };
+/** Row shapes stay private to this file: callers only see the `Skill` / `SkillVersion` contracts. */
+type SkillRow = typeof t.skills.$inferSelect;
+type SkillVersionRow = typeof t.skillVersions.$inferSelect;
+
+function toSkill(row: SkillRow): Skill {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    type: row.type as SkillType,
+    source: row.source as SkillSource,
+    body: row.body,
+    enabled: row.enabled,
+    version: row.version,
+    evidence_files: row.evidenceFiles ?? null,
+  };
+}
+
+function toSkillVersion(row: SkillVersionRow): SkillVersion {
+  return {
+    version: row.version,
+    body: row.body,
+    description: row.description,
+    message: row.message,
+    created_at: row.createdAt.toISOString(),
+  };
+}
 
 export interface InsertSkill {
   workspaceId: string;
@@ -62,32 +87,25 @@ function rate(num: number, den: number): number | null {
 export class SkillsRepository {
   constructor(private db: Db) {}
 
-  async list(workspaceId: string): Promise<SkillRow[]> {
-    return this.db
+  async list(workspaceId: string): Promise<Skill[]> {
+    const rows = await this.db
       .select()
       .from(t.skills)
       .where(eq(t.skills.workspaceId, workspaceId))
       .orderBy(asc(t.skills.name));
+    return rows.map(toSkill);
   }
 
-  async getById(workspaceId: string, id: string): Promise<SkillRow | undefined> {
+  async getById(workspaceId: string, id: string): Promise<Skill | undefined> {
     const [row] = await this.db
       .select()
       .from(t.skills)
       .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.id, id)));
-    return row;
-  }
-
-  async getByName(workspaceId: string, name: string): Promise<SkillRow | undefined> {
-    const [row] = await this.db
-      .select()
-      .from(t.skills)
-      .where(and(eq(t.skills.workspaceId, workspaceId), eq(t.skills.name, name)));
-    return row;
+    return row ? toSkill(row) : undefined;
   }
 
   /** Insert a skill AND its v1 snapshot in one transaction. */
-  async insert(values: InsertSkill): Promise<SkillRow> {
+  async insert(values: InsertSkill): Promise<Skill> {
     return this.db.transaction(async (tx) => {
       const [row] = await tx
         .insert(t.skills)
@@ -100,7 +118,7 @@ export class SkillsRepository {
         description: row!.description,
         message: null,
       });
-      return row!;
+      return toSkill(row!);
     });
   }
 
@@ -113,7 +131,7 @@ export class SkillsRepository {
     id: string,
     patch: SkillPatch,
     message?: string,
-  ): Promise<SkillRow | undefined> {
+  ): Promise<Skill | undefined> {
     return this.db.transaction(async (tx) => {
       const [cur] = await tx
         .select()
@@ -147,7 +165,7 @@ export class SkillsRepository {
           message: message ?? null,
         });
       }
-      return row;
+      return row ? toSkill(row) : undefined;
     });
   }
 
@@ -170,20 +188,21 @@ export class SkillsRepository {
 
   // ---- versions ------------------------------------------------------------
 
-  async listVersions(skillId: string): Promise<SkillVersionRow[]> {
-    return this.db
+  async listVersions(skillId: string): Promise<SkillVersion[]> {
+    const rows = await this.db
       .select()
       .from(t.skillVersions)
       .where(eq(t.skillVersions.skillId, skillId))
       .orderBy(desc(t.skillVersions.version));
+    return rows.map(toSkillVersion);
   }
 
-  async getVersion(skillId: string, version: number): Promise<SkillVersionRow | undefined> {
+  async getVersion(skillId: string, version: number): Promise<SkillVersion | undefined> {
     const [row] = await this.db
       .select()
       .from(t.skillVersions)
       .where(and(eq(t.skillVersions.skillId, skillId), eq(t.skillVersions.version, version)));
-    return row;
+    return row ? toSkillVersion(row) : undefined;
   }
 
   /** Restore = append a NEW version copying an old one; history is never rewritten. */
@@ -191,7 +210,7 @@ export class SkillsRepository {
     workspaceId: string,
     id: string,
     fromVersion: number,
-  ): Promise<SkillRow | undefined> {
+  ): Promise<Skill | undefined> {
     return this.db.transaction(async (tx) => {
       const [cur] = await tx
         .select()
@@ -217,7 +236,7 @@ export class SkillsRepository {
         description: old.description,
         message: `Restored from v${fromVersion}`,
       });
-      return row;
+      return row ? toSkill(row) : undefined;
     });
   }
 

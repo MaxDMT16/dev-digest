@@ -61,6 +61,14 @@ describe('parseSkillImport — markdown', () => {
     expect(codes).toEqual(expect.arrayContaining(['html_comment', 'external_url', 'base64_blob']));
   });
 
+  it('stays linear on a body of unterminated html-comment openers (no ReDoS)', () => {
+    const evil = '# T\n' + '<!--'.repeat(24_000); // ~96 KB (under the 100 KB cap), never closed
+    const t0 = performance.now();
+    const r = parseSkillImport('x.md', md(evil));
+    expect(performance.now() - t0).toBeLessThan(250);
+    expect(r.warnings.map((w) => w.code)).not.toContain('html_comment');
+  });
+
   it('rejects unsupported extensions, empty and oversize input', () => {
     expect(codeOf(() => parseSkillImport('x.txt', md('hello')))).toBe('unsupported_type');
     expect(codeOf(() => parseSkillImport('x.md', new Uint8Array()))).toBe('empty_file');

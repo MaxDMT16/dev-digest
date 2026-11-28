@@ -12,20 +12,10 @@ import type {
   UpdateSkillBody,
 } from '@devdigest/shared';
 import { ConflictError, NotFoundError, ValidationError } from '../../platform/errors.js';
-import type { SkillRow, SkillVersionRow, SkillsRepository } from './repository.js';
+import type { SkillsRepository } from './repository.js';
 import { getCommunityDetail, searchCommunity } from './community-catalog.js';
 import { ImportError, parseSkillImport } from './import-parser.js';
-import { isUniqueViolation, stripInvisibleChars, toSkillDto } from './helpers.js';
-
-function toVersionDto(row: SkillVersionRow): SkillVersion {
-  return {
-    version: row.version,
-    body: row.body,
-    description: row.description,
-    message: row.message,
-    created_at: row.createdAt.toISOString(),
-  };
-}
+import { isUniqueViolation, stripInvisibleChars } from './helpers.js';
 
 const DUPLICATE = 'A skill with this name already exists';
 
@@ -39,13 +29,13 @@ export class SkillsService {
       rows.map((r) => r.id),
     );
     return rows.map((r) => ({
-      ...toSkillDto(r),
+      ...r,
       usage: usage.get(r.id) ?? { agent_count: 0, pull_rate: null, accept_rate: null },
     }));
   }
 
   async get(workspaceId: string, id: string): Promise<Skill> {
-    return toSkillDto(await this.require(workspaceId, id));
+    return this.require(workspaceId, id);
   }
 
   async create(workspaceId: string, body: CreateSkillBody): Promise<Skill> {
@@ -75,7 +65,7 @@ export class SkillsService {
         version_message,
       );
       if (!row) throw new NotFoundError('Skill not found');
-      return toSkillDto(row);
+      return row;
     } catch (e) {
       if (isUniqueViolation(e)) throw new ConflictError(DUPLICATE);
       throw e;
@@ -90,20 +80,20 @@ export class SkillsService {
 
   async listVersions(workspaceId: string, id: string): Promise<SkillVersion[]> {
     await this.require(workspaceId, id);
-    return (await this.repo.listVersions(id)).map(toVersionDto);
+    return this.repo.listVersions(id);
   }
 
   async getVersion(workspaceId: string, id: string, version: number): Promise<SkillVersion> {
     await this.require(workspaceId, id);
     const row = await this.repo.getVersion(id, version);
     if (!row) throw new NotFoundError('Skill version not found');
-    return toVersionDto(row);
+    return row;
   }
 
   async restore(workspaceId: string, id: string, version: number): Promise<Skill> {
     const row = await this.repo.restore(workspaceId, id, version);
     if (!row) throw new NotFoundError('Skill or version not found');
-    return toSkillDto(row);
+    return row;
   }
 
   async stats(workspaceId: string, id: string): Promise<SkillStats> {
@@ -148,7 +138,7 @@ export class SkillsService {
 
   // ---- internals ------------------------------------------------------------
 
-  private async require(workspaceId: string, id: string): Promise<SkillRow> {
+  private async require(workspaceId: string, id: string): Promise<Skill> {
     const row = await this.repo.getById(workspaceId, id);
     if (!row) throw new NotFoundError('Skill not found');
     return row;
@@ -167,7 +157,7 @@ export class SkillsService {
         description: stripInvisibleChars(v.description),
         body: stripInvisibleChars(v.body),
       });
-      return toSkillDto(row);
+      return row;
     } catch (e) {
       if (isUniqueViolation(e)) throw new ConflictError(DUPLICATE);
       throw e;

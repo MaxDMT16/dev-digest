@@ -135,12 +135,18 @@ function splitFrontmatter(text: string): Frontmatter {
   }
 }
 
+/** Linear scan (a lazy `<!--[\s\S]*?-->` regex is quadratic on a body of repeated `<!--`). */
+function hasHtmlComment(text: string): boolean {
+  const open = text.indexOf('<!--');
+  return open >= 0 && text.indexOf('-->', open + 4) >= 0;
+}
+
 function collectWarnings(raw: string, body: string, fmBad: boolean): SkillImportWarning[] {
   const w: SkillImportWarning[] = [];
   if (fmBad) {
     w.push({ code: 'bad_frontmatter', message: 'Frontmatter could not be parsed and was ignored.' });
   }
-  if (/<!--[\s\S]*?-->/.test(body)) {
+  if (hasHtmlComment(body)) {
     w.push({
       code: 'html_comment',
       message: 'Contains HTML comments: hidden in rendered Markdown, but the model sees them.',

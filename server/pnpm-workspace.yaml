@@ -1,0 +1,10 @@
+# pnpm 11 refuses to install (ERR_PNPM_IGNORED_BUILDS) when a dependency has a build
+# script that is neither allowed nor denied. None of these is needed here:
+# esbuild ships its binary as a platform package, protobufjs only checks its
+# version, cpu-features/ssh2 native add-ons are optional (testcontainers).
+# Deny them explicitly, which is what pnpm 10 did implicitly.
+allowBuilds:
+  cpu-features: false
+  esbuild: false
+  protobufjs: false
+  ssh2: false

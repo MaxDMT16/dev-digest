@@ -21,6 +21,8 @@
 
 - 2026-11-28 (later): Fixed the 04/05 race above by adding `wait --text "Add rate limiting to public API endpoints"` before the row click, exactly like flow 02 (hermetic run: 8/8 flows pass). Resolves the first Open Question below: it was a render race, not an `agent-browser` version issue. Rule for new flows: after `wait --url`, always `wait --text` for the element before `find text … click`.
 
+- 2026-11-28 (CI): CI runs a SHORT viewport (~1280x577, see the `e2e-failure` artifact screenshot), unlike a local run. `agent-browser find text … click` fails instantly on an element below the fold, and `wait --text` still passes for it (the text is in the DOM). Flow 08 therefore opens the FIRST card (`lethal-trifecta`; the skills list is sorted by name), not `pr-quality-rubric`. When a flow must click a list item, pick one that is visible without scrolling. Failure details: `gh run download <run-id> -n e2e-failure` gives `<flow>-fail.png`; the log only says "Command failed".
+
 ## Open Questions
 
 - The 2026-11-22 note says all 7 flows passed in the hermetic run, but on 2026-11-28 04 and 05 fail on an unmodified `HEAD` (see above). Is that an `agent-browser` version difference or a render race that CI hides? Adding `wait --text "Add rate limiting to public API endpoints"` before the click in 04 and 05 would remove the race (not done: out of scope for the skills change).

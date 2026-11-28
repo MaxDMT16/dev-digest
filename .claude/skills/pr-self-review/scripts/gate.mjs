@@ -7,29 +7,46 @@ import { pathToFileURL } from "node:url";
 import { repoRoot, mergeBase, headTree, verdictKey, gitTry, git } from "./lib.mjs";
 import { readVerdict } from "./verdict.mjs";
 
-const GH_RE = /\bgh\s+pr\s+(create|merge)\b/;
+// Anchored to command position so text that merely mentions the phrase (commit messages, echo) is not gated.
+const GH_ANCHORED = /(?:^|[;&|(\n]|\$\()\s*(?:\w+=\S*\s+)*(?:(?:command|exec|env|sudo|time)\s+)*gh\s+pr\s+(create|merge)\b/;
+// Original unanchored match, used whenever the command wraps/evaluates other commands so nothing slips through.
+const GH_LOOSE = /\bgh\s+pr\s+(create|merge)\b/;
+const WRAPPED = /\b(?:ba|z)?sh\s+-c\b|\beval\b|\bxargs\b|\$\(|`/;
+// Merge flags that take a value (the value must not be mistaken for the PR selector).
+const MERGE_VALUE_FLAGS = new Set(["--body", "-b", "--body-file", "-F", "--subject", "-t", "--match-head-commit", "--author-email", "-A"]);
 
 const tokens = (cmd) => cmd.match(/"[^"]*"|'[^']*'|\S+/g)?.map((t) => t.replace(/^(["'])(.*)\1$/, "$2")) ?? [];
 
-/** Parse the gh invocation: { kind, base, rest } where rest are the args after `create|merge`. */
+/** Parse the gh invocation: { kind, base, positional } (positional = selector/repo args for the merge-side PR lookup). */
 export function parseGh(command) {
-  const m = GH_RE.exec(command);
+  const m = GH_ANCHORED.exec(command) ?? (WRAPPED.test(command) ? GH_LOOSE.exec(command) : null);
   if (!m) return null;
-  const t = tokens(command.slice(m.index + m[0].length).split(/&&|\|\||;|\|/)[0]);
+  const t = tokens(command.slice(m.index + m[0].length).split(/&&|\|\||;|\||\n/)[0]);
   let base = null;
-  const positional = [];
+  let selector = null;
+  let repo = null;
   for (let i = 0; i < t.length; i++) {
-    if (t[i] === "--base" || t[i] === "-B") base = t[++i] ?? base;
-    else if (t[i].startsWith("--base=")) base = t[i].slice(7);
-    else if (t[i].startsWith("-")) {
-      if (m[1] === "merge" && ["--repo", "-R"].includes(t[i])) positional.push(t[i], t[++i]);
-    } else positional.push(t[i]);
+    const a = t[i];
+    if (a === "--base" || a === "-B") base = t[++i] ?? base;
+    else if (a.startsWith("--base=")) base = a.slice(7);
+    else if (a === "--repo" || a === "-R") repo = t[++i] ?? repo;
+    else if (a.startsWith("--repo=")) repo = a.slice(7);
+    else if (MERGE_VALUE_FLAGS.has(a)) i++;
+    else if (a.startsWith("-")) continue;
+    else if (selector === null) selector = a;
+  }
+  const positional = [];
+  if (m[1] === "merge") {
+    if (selector !== null) positional.push(selector);
+    if (repo !== null) positional.push("--repo", repo);
   }
   return { kind: m[1], base, positional };
 }
 
 const defaultGh = (args, cwd) => execFileSync("gh", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
+// Prefer origin/<base> (the skill's default); fall back to the local branch so offline/local-only repos still get
+// a key. A different base only yields a different key, i.e. a block, never a false pass.
 function resolveBase(name, cwd) {
   for (const c of [`origin/${name}`, name]) if (gitTry(["rev-parse", "--verify", "-q", c], { cwd })) return c;
   return null;

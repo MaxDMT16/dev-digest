@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { spawnSync, execFileSync } from "node:child_process";
 import { makeRepo } from "./test-helpers.mjs";
 import { writeVerdict, currentKey } from "./verdict.mjs";
@@ -107,6 +108,48 @@ test("merge: no verdict for head commit blocks", () => {
   const oid = execFileSync("git", ["rev-parse", "HEAD"], { cwd: r.d, encoding: "utf8" }).trim();
   const gh = () => JSON.stringify({ headRefOid: oid, baseRefName: "main" });
   assert.equal(decide("gh pr merge", { cwd: r.d, gh }).code, 2);
+});
+
+test("false positives pass through without a verdict", () => {
+  const r = repo();
+  assert.equal(run(r, 'git commit -m "docs: mention gh pr create flow"').code, 0);
+  assert.equal(run(r, 'echo "run gh pr merge later"').code, 0);
+  assert.equal(run(r, "cat <<'X'\nuse gh pr create here\nX").code, 0);
+});
+
+test("command-position and wrapped invocations are still gated", () => {
+  const r = repo();
+  for (const c of [
+    "gh pr create", "FOO=1 gh pr create", "(gh pr create)", "a;gh pr create", "a && gh pr merge 5",
+    'bash -c "gh pr create"', "echo hi\ngh pr create", "sudo gh pr create", "echo $(gh pr create)",
+    "echo gh pr create | xargs sh -c",
+  ]) assert.equal(run(r, c).code, 2, c);
+});
+
+test("merge: flag values do not leak into the selector", () => {
+  assert.deepEqual(parseGh('gh pr merge 5 --squash --body "msg"').positional, ["5"]);
+  assert.deepEqual(parseGh('gh pr merge --body "msg" 5 -R o/r').positional, ["5", "--repo", "o/r"]);
+  assert.deepEqual(parseGh("gh pr merge --squash").positional, []);
+});
+
+test("malformed stdin JSON exits 0", () => {
+  const p = spawnSync("node", [here + "gate.mjs"], { input: "not json", encoding: "utf8" });
+  assert.equal(p.status, 0);
+});
+
+test("corrupt verdict file blocks", () => {
+  const r = repo();
+  store(r, "pass");
+  const dir = execFileSync("git", ["rev-parse", "--git-common-dir"], { cwd: r.d, encoding: "utf8" }).trim();
+  const vd = join(r.d, dir, "pr-self-review", "verdicts");
+  for (const f of readdirSync(vd)) writeFileSync(join(vd, f), "{broken");
+  assert.equal(run(r, "gh pr create").code, 2);
+});
+
+test("base falls back to the local branch when origin/<base> is absent", () => {
+  const r = repo(); // no remote at all
+  store(r, "pass");
+  assert.equal(run(r, "gh pr create --base main").code, 0);
 });
 
 test(".claude/settings.json registers the hook and is not git-ignored", () => {

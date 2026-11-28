@@ -154,6 +154,41 @@ test("no catastrophic backtracking; correct result on long prefixes", () => {
   }
 });
 
+test("linear time on adversarial prefixes (round 4); correct result", () => {
+  const prefixes = ["sudo -a ".repeat(3000), "env A=1 -i ".repeat(3000), 'A="x" '.repeat(3000), "sudo ".repeat(3000)];
+  const cases = [];
+  for (const p of prefixes) cases.push([p + "gh pr create", "create"], [p + "gh pr merge 5", "merge"], [p + "x", null]);
+  cases.push(
+    ["sh ".repeat(10000) + "-c 'gh pr create'", "create"],
+    ["sh ".repeat(10000) + "echo", null],
+    ["sh ".repeat(10000) + "echo gh pr create", null],
+    [";".repeat(10000) + "gh pr merge 5", "merge"],
+    ['"'.repeat(10000) + "; gh pr create", "create"],
+    ["'".repeat(10001) + " ; gh pr create", "create"], // unbalanced quote: the quote-blind pass still sees it
+    ["A=" + '"'.repeat(10001) + " x", null],
+  );
+  for (const [c, kind] of cases) {
+    const t0 = Date.now();
+    const p = parseGh(c);
+    assert.ok(Date.now() - t0 < 500, "slow: " + c.slice(0, 30));
+    assert.equal(p?.kind ?? null, kind, c.slice(0, 30));
+  }
+});
+
+test("tokenizer: more gated forms and pass-through mentions (round 4)", () => {
+  for (const c of [
+    'FOO="a;b" gh pr create', 'g"h" pr create', 'gh "pr" create', "2>/dev/null gh pr create", "> out gh pr create",
+    "/usr/bin/env -i gh pr create", "cat <<X\ndon't\nX\ngh pr create", "gh pr -R o/r merge 5", "sudo -E nice -n 5 gh pr merge 5",
+    "if ! gh pr create; then :; fi", "gh \\\n  pr create",
+  ]) assert.notEqual(parseGh(c), null, c);
+  for (const c of [
+    "echo then gh pr create", 'git commit -m "then gh pr create"', "grep -rn 'gh pr merge' .", "rg gh pr create",
+    "git log --grep 'gh pr create'", "printf '%s\\n' gh pr merge",
+  ]) assert.equal(parseGh(c), null, c);
+  assert.deepEqual(parseGh("gh pr -R o/r merge 5").positional, ["5", "--repo", "o/r"]);
+  assert.equal(parseGh("cd x && gh pr create --base dev").base, "dev");
+});
+
 test("shell wrappers with extra flags are gated", () => {
   const r = repo();
   for (const c of ['bash -x -c "gh pr create"', 'bash --norc -c "gh pr create"', 'sh -ec "gh pr merge 5"']) {

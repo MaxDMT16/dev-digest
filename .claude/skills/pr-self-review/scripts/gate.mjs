@@ -7,20 +7,146 @@ import { pathToFileURL } from "node:url";
 import { repoRoot, mergeBase, headTree, verdictKey, gitTry, git } from "./lib.mjs";
 import { readVerdict } from "./verdict.mjs";
 
-// Anchored to command position so text that merely mentions the phrase (commit messages, echo) is not gated.
-const GH_ANCHORED = new RegExp(
-  // opener: start, separators, `{`/`!`, `$(`, or a shell keyword
-  String.raw`(?:^|[;&|(\n{!]|\$\(|\b(?:then|do|else|elif|if|while|until)\b)\s*` +
-    // env assignments (values may be quoted)
-    String.raw`(?:\w+=(?:"[^"]*"|'[^']*'|\S*)\s+)*` +
-    // wrapper words, each with optional flags (and one flag argument): time -p, sudo -u x, nice -n5, command --
-    String.raw`(?:(?:command|exec|env|sudo|time|nohup|nice)\s+(?:-\S*\s+(?:(?!gh\b)[\w.]+\s+)?|\w+=\S*\s+)*)*` +
-    // binary: optional path, optional quotes / backslash
-    String.raw`[\\"']?(?:\S*\/)?gh["']?\s+pr\s+(create|merge)\b`,
-);
+// Command matching is imperative and linear-time (no nested-quantifier regex, so no ReDoS):
+// the command is split into simple commands (twice: once ignoring quotes, once quote-aware; a hit in either gates),
+// and each one is walked from its first word: shell keywords, env assignments, redirections and wrapper words
+// (with their flags) are skipped, then the binary must be gh (any path/quoting) followed by `pr create|merge`.
+// So text that merely mentions the phrase (commit messages, echo, heredocs) is not gated.
+const KEYWORDS = new Set(["then", "do", "else", "elif", "if", "while", "until", "!", "{"]);
+const WRAPPERS = new Set(["command", "exec", "env", "sudo", "time", "nohup", "nice"]);
+const SHELLS = /^(?:ba|z|da|k|mk|a|c|tc|fi)?sh$/;
+const ASSIGN = /^[A-Za-z_]\w*\+?=/;
+const REDIR = /^(?:\d+|&)?(?:>>?|<<?|>&|<&|>\|)/;
 // Original unanchored match, used whenever the command wraps/evaluates other commands so nothing slips through.
 const GH_LOOSE = /\bgh\s+pr\s+(create|merge)\b/;
-const WRAPPED = /\b(?:ba|z|da)?sh\b[^|;&\n]*\s-\w*c\b|\beval\b|\bxargs\b|\$\(|`/;
+const EVALS = /\beval\b|\bxargs\b|\$\(|`/;
+
+const basename = (w) => w.slice(w.lastIndexOf("/") + 1);
+const isSpace = (c) => c === " " || c === "\t" || c === "\r" || c === "\f" || c === "\v";
+
+/** Is cmd[i] a command separator (; & | ( ) newline backtick)? `&`/`|` that belong to a redirection are not. */
+function isSep(cmd, i) {
+  const c = cmd[i];
+  if (c === "&") return !(cmd[i - 1] === ">" || cmd[i - 1] === "<" || cmd[i + 1] === ">");
+  if (c === "|") return cmd[i - 1] !== ">";
+  return c === ";" || c === "(" || c === ")" || c === "\n" || c === "`";
+}
+
+/** Simple commands ignoring quotes (conservative: survives unbalanced quotes / heredoc bodies). Words: { v, end }. */
+function looseCommands(cmd) {
+  const out = [];
+  let words = [];
+  let start = -1;
+  const word = (i) => {
+    if (start >= 0) words.push({ v: cmd.slice(start, i).replace(/["'\\]/g, ""), end: i });
+    start = -1;
+  };
+  for (let i = 0; i < cmd.length; i++) {
+    if (isSep(cmd, i)) { word(i); out.push(words); words = []; }
+    else if (isSpace(cmd[i])) word(i);
+    else if (start < 0) start = i;
+  }
+  word(cmd.length);
+  out.push(words);
+  return out;
+}
+
+/** Simple commands with shell quoting applied (quoted env values, "gh", g\h, separators inside quotes). */
+function shellCommands(cmd) {
+  const out = [];
+  let words = [];
+  let cur = null;
+  let q = null;
+  const word = (i) => {
+    if (cur !== null) words.push({ v: cur, end: i });
+    cur = null;
+  };
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i];
+    if (q === "'") { if (c === "'") q = null; else cur += c; continue; }
+    if (q === '"') {
+      if (c === '"') q = null;
+      else if (c === "\\" && i + 1 < cmd.length) cur += cmd[++i];
+      else cur += c;
+      continue;
+    }
+    if (c === "\\") {
+      if (cmd[i + 1] !== "\n") cur = (cur ?? "") + (cmd[i + 1] ?? ""); // backslash-newline is a line continuation
+      i++;
+    } else if (c === "'" || c === '"') { q = c; cur ??= ""; }
+    else if (isSep(cmd, i)) { word(i); out.push(words); words = []; }
+    else if (isSpace(c)) word(i);
+    else cur = (cur ?? "") + c;
+  }
+  word(cmd.length);
+  out.push(words);
+  return out;
+}
+
+/** Match `gh [flags] pr [flags] create|merge` at the start of one simple command. Linear in its word count. */
+function matchCommand(words) {
+  const n = words.length;
+  let i = 0;
+  let wrapper = false;
+  while (i < n) {
+    const v = words[i].v;
+    if (KEYWORDS.has(v) || ASSIGN.test(v)) i++;
+    else if (REDIR.test(v)) i += v.replace(REDIR, "") === "" ? 2 : 1; // `> f` vs `>f` / `2>&1`
+    else if (WRAPPERS.has(basename(v))) { wrapper = true; i++; }
+    else if (wrapper && v.startsWith("-")) {
+      // wrapper flag, plus at most one flag argument (sudo -u x, nice -n 5); never swallow gh/a wrapper/an assignment
+      i++;
+      const a = words[i]?.v;
+      if (a !== undefined && !a.startsWith("-") && !ASSIGN.test(a) && !WRAPPERS.has(basename(a)) && basename(a) !== "gh") i++;
+    } else break;
+  }
+  if (i >= n || basename(words[i].v) !== "gh") return null;
+  i++;
+  let repo = null;
+  const skipFlags = () => {
+    while (i < n && words[i].v.startsWith("-")) {
+      const f = words[i++].v;
+      if ((f === "-R" || f === "--repo") && i < n) repo = words[i++].v;
+      else if (f.startsWith("--repo=")) repo = f.slice(7);
+    }
+  };
+  skipFlags();
+  if (words[i]?.v !== "pr") return null;
+  i++;
+  skipFlags();
+  const kind = words[i]?.v;
+  if (kind !== "create" && kind !== "merge") return null;
+  return { kind, end: words[i].end, repo };
+}
+
+/** Does the command run text through another shell (sh -c, bash -lc, eval, xargs, $(...), backticks)? */
+function isWrapped(command, loose) {
+  if (EVALS.test(command)) return true;
+  for (const words of loose) {
+    let shell = false;
+    for (const { v } of words) {
+      if (shell && /^-[A-Za-z]*c/.test(v)) return true;
+      if (SHELLS.test(basename(v))) shell = true;
+    }
+  }
+  return false;
+}
+
+/** Find the gated gh invocation: { kind, end (index after create/merge), repo (-R before the subcommand) } or null. */
+function findGh(command) {
+  const loose = looseCommands(command);
+  let best = null;
+  for (const cmds of [loose, shellCommands(command)]) {
+    for (const words of cmds) {
+      const m = matchCommand(words);
+      if (m && (!best || m.end < best.end)) best = m;
+    }
+  }
+  if (best) return best;
+  if (!isWrapped(command, loose)) return null;
+  const m = GH_LOOSE.exec(command);
+  return m ? { kind: m[1], end: m.index + m[0].length, repo: null } : null;
+}
 
 /** Cut a command tail at the first separator (&&, ||, ;, |, ), newline) that is not inside quotes. */
 function cutAtSeparator(s) {
@@ -40,12 +166,12 @@ const tokens = (cmd) => cmd.match(/"[^"]*"|'[^']*'|\S+/g)?.map((t) => t.replace(
 
 /** Parse the gh invocation: { kind, base, positional } (positional = selector/repo args for the merge-side PR lookup). */
 export function parseGh(command) {
-  const m = GH_ANCHORED.exec(command) ?? (WRAPPED.test(command) ? GH_LOOSE.exec(command) : null);
+  const m = findGh(command);
   if (!m) return null;
-  const t = tokens(cutAtSeparator(command.slice(m.index + m[0].length)));
+  const t = tokens(cutAtSeparator(command.slice(m.end)));
   let base = null;
   let selector = null;
-  let repo = null;
+  let repo = m.repo;
   for (let i = 0; i < t.length; i++) {
     const a = t[i];
     if (a === "--base" || a === "-B") base = t[++i] ?? base;
@@ -57,11 +183,11 @@ export function parseGh(command) {
     else if (selector === null) selector = a;
   }
   const positional = [];
-  if (m[1] === "merge") {
+  if (m.kind === "merge") {
     if (selector !== null) positional.push(selector);
     if (repo !== null) positional.push("--repo", repo);
   }
-  return { kind: m[1], base, positional };
+  return { kind: m.kind, base, positional };
 }
 
 const defaultGh = (args, cwd) => execFileSync("gh", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
